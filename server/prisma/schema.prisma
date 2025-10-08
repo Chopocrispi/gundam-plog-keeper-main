@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  userId       String    @unique
+  displayName  String?
+  email        String?   @unique
+  provider     String?
+  providerId   String?
+  avatarUrl    String?
+  passwordHash String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  models       Model[]
+  sessions     Session[]
+
+  @@index([provider, providerId], name: "provider_providerId")
+}
+
+model Model {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  name           String
+  grade          String
+  series         String
+  scale          String?
+  releaseDate    DateTime?
+  price          Float?
+  buildStatus    String
+  rating         Int?
+  notes          String?
+  imageUrl       String?
+  purchaseDate   DateTime?
+  completionDate DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+}

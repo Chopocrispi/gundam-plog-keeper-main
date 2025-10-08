@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { GundamModel } from '@/types/gundam';
 import { GundamCard } from '@/components/GundamCard';
 import { GundamForm } from '@/components/GundamForm';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,9 +10,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Plus, Search, Grid, List, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import GoogleLoginButton from '@/components/GoogleLoginButton';
+import { useAuth } from '@/hooks/use-auth';
+import supabase from '@/lib/supabase';
 
 const Index = () => {
   const { toast } = useToast();
+  const { user, signedIn } = useAuth();
   const [models, setModels] = useState<GundamModel[]>([]);
   const [filteredModels, setFilteredModels] = useState<GundamModel[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -24,22 +29,85 @@ const Index = () => {
 
   // Load models from localStorage on component mount
   useEffect(() => {
-    const savedModels = localStorage.getItem('gundam-models');
-    if (savedModels) {
-      try {
-        const parsedModels = JSON.parse(savedModels);
-        setModels(parsedModels);
-        setFilteredModels(parsedModels);
-      } catch (error) {
-        console.error('Error parsing saved models:', error);
+    (async () => {
+      if (signedIn && user) {
+        try {
+          const { data, error } = await supabase
+            .from('models')
+            .select('*')
+            .eq('user_id', user.sub)
+            .order('created_at', { ascending: true });
+          if (error) throw error;
+          if (data) {
+            // map DB rows to GundamModel
+            const mapped: GundamModel[] = data.map((r: any) => ({
+              id: r.id,
+              name: r.name,
+              grade: r.grade,
+              series: r.series || '',
+              scale: r.scale || undefined,
+              releaseDate: r.release_date || undefined,
+              price: r.price || undefined,
+              buildStatus: r.build_status || 'Unbuilt',
+              rating: r.rating || undefined,
+              notes: r.notes || undefined,
+              imageUrl: r.image_url || undefined,
+              purchaseDate: r.purchase_date || undefined,
+              completionDate: r.completion_date || undefined,
+              createdAt: r.created_at,
+              updatedAt: r.updated_at,
+            }));
+            setModels(mapped);
+            setFilteredModels(mapped);
+            return;
+          }
+        } catch (e) {
+          console.warn('Failed to load models from Supabase, falling back to localStorage', e);
+        }
+      } else {
+        // When not signed in, do not show any kits (privacy/require-login)
+        setModels([]);
+        setFilteredModels([]);
       }
-    }
-  }, []);
+    })();
+  }, [signedIn, user]);
 
   // Save models to localStorage whenever models change
   useEffect(() => {
-    localStorage.setItem('gundam-models', JSON.stringify(models));
-  }, [models]);
+    (async () => {
+      // always keep local copy
+      try { localStorage.setItem('gundam-models', JSON.stringify(models)); } catch (e) {}
+
+      // if signed in, persist to Supabase
+      if (signedIn && user) {
+        try {
+          // upsert all models (simple approach)
+          const toUpsert = models.map(m => ({
+            id: m.id,
+            user_id: user.sub,
+            name: m.name,
+            grade: m.grade,
+            series: m.series,
+            scale: m.scale,
+            release_date: m.releaseDate,
+            price: m.price,
+            build_status: m.buildStatus,
+            rating: m.rating,
+            notes: m.notes,
+            image_url: m.imageUrl,
+            purchase_date: m.purchaseDate,
+            completion_date: m.completionDate,
+            created_at: m.createdAt,
+            updated_at: m.updatedAt,
+          }));
+          const { error } = await supabase.from('models').upsert(toUpsert, { onConflict: 'id' });
+          if (error) console.warn('Supabase upsert error', error);
+        } catch (e) {
+          console.warn('Failed to persist models to Supabase', e);
+        }
+      }
+    })();
+  }, [models, signedIn, user]);
 
   // Filter models based on search and filters
   useEffect(() => {
@@ -49,7 +117,7 @@ const Index = () => {
       filtered = filtered.filter(model =>
         model.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         model.series.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        model.manufacturer.toLowerCase().includes(searchTerm.toLowerCase())
+        false
       );
     }
 
@@ -65,50 +133,115 @@ const Index = () => {
   }, [models, searchTerm, filterGrade, filterStatus]);
 
   const handleAddModel = (modelData: Omit<GundamModel, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newModel: GundamModel = {
-      ...modelData,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    (async () => {
+      const id = Date.now().toString();
+      const now = new Date().toISOString();
+      const newModel: GundamModel = { ...modelData, id, createdAt: now, updatedAt: now };
 
-    setModels(prev => [...prev, newModel]);
-    setShowForm(false);
-    toast({
-      title: "Model Added",
-      description: `${newModel.name} has been added to your collection.`,
-    });
+      // Update local state immediately for optimistic UI
+      setModels(prev => [...prev, newModel]);
+      setShowForm(false);
+
+      if (signedIn && user) {
+        try {
+          const { error, data } = await supabase.from('models').insert([{ 
+            id: newModel.id,
+            user_id: user.sub,
+            name: newModel.name,
+            grade: newModel.grade,
+            series: newModel.series,
+            scale: newModel.scale,
+            release_date: newModel.releaseDate,
+            price: newModel.price,
+            build_status: newModel.buildStatus,
+            rating: newModel.rating,
+            notes: newModel.notes,
+            image_url: newModel.imageUrl,
+            purchase_date: newModel.purchaseDate,
+            completion_date: newModel.completionDate,
+            created_at: newModel.createdAt,
+            updated_at: newModel.updatedAt,
+          }]);
+          if (error) throw error;
+          // if server returned timestamps, sync them
+          if (data && data[0]) {
+            const srv = data[0] as any;
+            setModels(prev => prev.map(m => m.id === id ? ({ ...m, createdAt: srv.created_at || m.createdAt, updatedAt: srv.updated_at || m.updatedAt }) : m));
+          }
+          toast({ title: 'Model Added', description: `${newModel.name} saved to your account.` });
+        } catch (e) {
+          console.warn('Failed to save model to Supabase', e);
+          toast({ title: 'Saved locally', description: `${newModel.name} saved locally but failed to save to cloud.` });
+        }
+      } else {
+        toast({ title: 'Model Added', description: `${newModel.name} has been added to your collection.` });
+      }
+    })();
   };
 
   const handleEditModel = (modelData: Omit<GundamModel, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!editingModel) return;
+    (async () => {
+      const updatedModel: GundamModel = { ...modelData, id: editingModel.id, createdAt: editingModel.createdAt, updatedAt: new Date().toISOString() };
 
-    const updatedModel: GundamModel = {
-      ...modelData,
-      id: editingModel.id,
-      createdAt: editingModel.createdAt,
-      updatedAt: new Date().toISOString(),
-    };
+      // Optimistic update
+      setModels(prev => prev.map(model => model.id === editingModel.id ? updatedModel : model));
+      setShowForm(false);
+      setEditingModel(undefined);
 
-    setModels(prev => prev.map(model => 
-      model.id === editingModel.id ? updatedModel : model
-    ));
-    setShowForm(false);
-    setEditingModel(undefined);
-    toast({
-      title: "Model Updated",
-      description: `${updatedModel.name} has been updated.`,
-    });
+      if (signedIn && user) {
+        try {
+          const { error, data } = await supabase.from('models').update({
+            name: updatedModel.name,
+            grade: updatedModel.grade,
+            series: updatedModel.series,
+            scale: updatedModel.scale,
+            release_date: updatedModel.releaseDate,
+            price: updatedModel.price,
+            build_status: updatedModel.buildStatus,
+            rating: updatedModel.rating,
+            notes: updatedModel.notes,
+            image_url: updatedModel.imageUrl,
+            purchase_date: updatedModel.purchaseDate,
+            completion_date: updatedModel.completionDate,
+            updated_at: updatedModel.updatedAt,
+          }).eq('id', updatedModel.id).eq('user_id', user.sub).select();
+          if (error) throw error;
+          if (data && data[0]) {
+            const srv = data[0] as any;
+            setModels(prev => prev.map(m => m.id === updatedModel.id ? ({ ...m, updatedAt: srv.updated_at || m.updatedAt }) : m));
+          }
+          toast({ title: 'Model Updated', description: `${updatedModel.name} saved to your account.` });
+        } catch (e) {
+          console.warn('Failed to update model in Supabase', e);
+          toast({ title: 'Update failed', description: `${updatedModel.name} updated locally but failed to save to cloud.` });
+        }
+      } else {
+        toast({ title: 'Model Updated', description: `${updatedModel.name} has been updated.` });
+      }
+    })();
   };
 
   const handleDeleteModel = (id: string) => {
-    const model = models.find(m => m.id === id);
-    setModels(prev => prev.filter(model => model.id !== id));
-    setDeleteId(null);
-    toast({
-      title: "Model Deleted",
-      description: `${model?.name || 'Model'} has been removed from your collection.`,
-    });
+    (async () => {
+      const model = models.find(m => m.id === id);
+      // Optimistic remove
+      setModels(prev => prev.filter(model => model.id !== id));
+      setDeleteId(null);
+
+      if (signedIn && user) {
+        try {
+          const { error } = await supabase.from('models').delete().eq('id', id).eq('user_id', user.sub);
+          if (error) throw error;
+          toast({ title: 'Model Deleted', description: `${model?.name || 'Model'} removed from your account.` });
+        } catch (e) {
+          console.warn('Failed to delete model from Supabase', e);
+          toast({ title: 'Delete failed', description: `${model?.name || 'Model'} removed locally but failed to delete from cloud.` });
+        }
+      } else {
+        toast({ title: 'Model Deleted', description: `${model?.name || 'Model'} has been removed from your collection.` });
+      }
+    })();
   };
 
   const openEditForm = (model: GundamModel) => {
@@ -135,13 +268,10 @@ const Index = () => {
                 Track and manage your Gunpla model kits
               </p>
             </div>
-            <Button 
-              onClick={() => setShowForm(true)}
-              className="bg-gradient-to-r from-primary to-gundam-red hover:from-primary/90 hover:to-gundam-red/90"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Model
-            </Button>
+            {/* header actions (sign in, etc.) — floating Add Model button moved to bottom-left */}
+            <div className="ml-4">
+              <GoogleLoginButton />
+            </div>
           </div>
         </div>
       </header>
@@ -243,6 +373,17 @@ const Index = () => {
       </div>
 
       {/* Add/Edit Form Dialog */}
+  {/* Floating Add Model button (bottom-right) */}
+  <div className="fixed right-4 bottom-4 z-50">
+        <Button
+          onClick={() => setShowForm(true)}
+          aria-label="Add model"
+          title="Add model"
+          className="h-14 w-14 rounded-full p-0 bg-gradient-to-r from-primary to-gundam-red hover:from-primary/90 hover:to-gundam-red/90 shadow-lg flex items-center justify-center"
+        >
+          <Plus className="h-5 w-5" />
+        </Button>
+      </div>
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -250,11 +391,13 @@ const Index = () => {
               {editingModel ? 'Edit Model' : 'Add New Model'}
             </DialogTitle>
           </DialogHeader>
-          <GundamForm
-            model={editingModel}
-            onSubmit={editingModel ? handleEditModel : handleAddModel}
-            onCancel={closeForm}
-          />
+          <ErrorBoundary onRecover={closeForm}>
+            <GundamForm
+              model={editingModel}
+              onSubmit={editingModel ? handleEditModel : handleAddModel}
+              onCancel={closeForm}
+            />
+          </ErrorBoundary>
         </DialogContent>
       </Dialog>
 
