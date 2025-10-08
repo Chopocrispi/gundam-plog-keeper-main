@@ -19,8 +19,7 @@ const Home: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20">
       <div className="container mx-auto px-6 py-24">
         <div className="max-w-3xl mx-auto text-center">
-          <h1 className="text-5xl font-extrabold text-gundam-red mb-4">{t('app.title')}</h1>
-          <p className="text-lg text-muted-foreground mb-8">{t('app.subtitle')}</p>
+          <h1 className="text-4xl sm:text-5xl font-extrabold text-gundam-red mb-4">{t('app.title')}</h1>
 
           <div className="flex items-center justify-center gap-4">
             {!signedIn ? (
