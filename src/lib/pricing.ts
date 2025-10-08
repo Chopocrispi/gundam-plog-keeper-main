@@ -1,4 +1,4 @@
-import type { GundamModel, GundamGrade } from '@/types/gundam';
+import type { GundamModel } from '@/types/gundam';
 import { STORE_FETCHERS } from '@/lib/stores/providers';
 
 export type PriceQuote = {
@@ -8,54 +8,7 @@ export type PriceQuote = {
   url?: string;
 };
 
-export interface PriceProvider {
-  id: string;
-  name: string;
-  search: (modelName: string, grade?: GundamGrade) => Promise<PriceQuote | null>;
-}
-
-// Simple baseline by grade (rough typical street prices)
-const gradeBaselineUSD: Record<string, number> = {
-  'High Grade (HG)': 22,
-  'Real Grade (RG)': 35,
-  'Master Grade (MG)': 55,
-  'Perfect Grade (PG)': 200,
-  'Full Mechanics (FM)': 50,
-  'Super Deformed (SD)': 15,
-};
-
-class BaselineProvider implements PriceProvider {
-  id = 'baseline';
-  name = 'Baseline';
-  async search(_modelName: string, grade?: GundamGrade): Promise<PriceQuote | null> {
-    const price = grade ? gradeBaselineUSD[grade] : undefined;
-    if (!price) return null;
-    return { store: this.name, price, currency: 'USD' };
-  }
-}
-
-class AdjustedBaselineProvider implements PriceProvider {
-  id: string;
-  name: string;
-  factor: number;
-  constructor(id: string, name: string, factor: number) {
-    this.id = id; this.name = name; this.factor = factor;
-  }
-  async search(_modelName: string, grade?: GundamGrade): Promise<PriceQuote | null> {
-    const base = grade ? gradeBaselineUSD[grade] : undefined;
-    if (!base) return null;
-    const price = Math.round(base * this.factor);
-    return { store: this.name, price, currency: 'USD' };
-  }
-}
-
-// In the future, add JSON-backed providers that fetch `/store-data/*.json` and match by keywords.
-
-const providers: PriceProvider[] = [
-  new BaselineProvider(),
-  new AdjustedBaselineProvider('storeA', 'Sample Store A', 0.92),
-  new AdjustedBaselineProvider('storeB', 'Sample Store B', 1.08),
-];
+// Note: We only use real store fetchers from STORE_FETCHERS. No baseline/sample fallbacks.
 
 type CacheEntry = { quotes: PriceQuote[]; ts: number };
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
@@ -94,7 +47,7 @@ export async function estimateModelPrice(model: GundamModel): Promise<{ quotes: 
     }
   } catch { /* ignore cache parse */ }
 
-  // Try all real stores first
+  // Try all real stores
   const realResults = await Promise.all(
     STORE_FETCHERS.map(async s => {
       const r = await s.fetcher(model);
@@ -103,13 +56,6 @@ export async function estimateModelPrice(model: GundamModel): Promise<{ quotes: 
   );
 
   let quotes = realResults.filter(Boolean) as PriceQuote[];
-  if (!quotes.length) {
-    // Fallback to baselines if no real store hit
-    const baselineResults = await Promise.all(
-      providers.map(p => p.search(name, model.grade as GundamGrade))
-    );
-    quotes = baselineResults.filter(Boolean) as PriceQuote[];
-  }
   if (!quotes.length) return null;
   // Convert all quotes to USD and average
   const sumUSD = quotes.reduce((a, q) => a + toUSD(q.price, q.currency), 0);
