@@ -3,6 +3,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // Simple allowlist to avoid open proxy issues
 const ALLOWED_HOSTS = new Set([
   'hobbygundamusa.com',
+  'geosanbattle.com',
 ]);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

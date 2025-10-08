@@ -1,5 +1,6 @@
 import type { GundamModel, GundamGrade } from '@/types/gundam';
 import { getHobbyGundamUSAPrice } from '@/lib/stores/hobbygundamusa';
+import { getGeosanBattlePriceUSD } from '@/lib/stores/geosanbattle';
 
 export type PriceQuote = {
   store: string;
@@ -81,12 +82,14 @@ export async function estimateModelPrice(model: GundamModel): Promise<{ quotes: 
 
   // Try real store first
   const real = await getHobbyGundamUSAPrice(model);
+  const real2 = await getGeosanBattlePriceUSD(model);
   const baselineResults = await Promise.all(
     providers.map(p => p.search(name, model.grade as GundamGrade))
   );
 
   const quotes = [
     ...(real ? [{ store: 'Hobby Gundam USA', price: Math.round(real.price), currency: real.currency, url: real.url }] : []),
+    ...(real2 ? [{ store: 'Geosan Battle', price: Math.round(real2.price), currency: real2.currency, url: real2.url }] : []),
     ...(baselineResults.filter(Boolean) as PriceQuote[])
   ];
   if (!quotes.length) return null;
