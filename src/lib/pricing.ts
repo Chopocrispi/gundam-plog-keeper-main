@@ -64,6 +64,19 @@ function cacheKey(name: string, grade?: string) {
   return `pricecache:v1:${name.toLowerCase()}|${grade || ''}`;
 }
 
+// Convert a quote to USD using a simple, configurable rate for EUR→USD.
+// Set VITE_EUR_USD_RATE to override; default is 1.08.
+function eurUsdRate(): number {
+  const raw = import.meta.env?.VITE_EUR_USD_RATE as unknown as string | undefined;
+  const n = raw ? Number(raw) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : 1.08;
+}
+
+function toUSD(price: number, currency: string): number {
+  if (currency === 'EUR') return Math.round(price * eurUsdRate() * 100) / 100;
+  return price;
+}
+
 export async function estimateModelPrice(model: GundamModel): Promise<{ quotes: PriceQuote[]; average: number | null; currency: string } | null> {
   const name = model.name?.trim();
   if (!name) return null;
@@ -73,8 +86,10 @@ export async function estimateModelPrice(model: GundamModel): Promise<{ quotes: 
     if (raw) {
       const entry = JSON.parse(raw) as CacheEntry;
       if (Date.now() - entry.ts < CACHE_TTL_MS) {
-        const avg = entry.quotes.length ? Math.round(entry.quotes.reduce((a, q) => a + q.price, 0) / entry.quotes.length) : null;
-        return { quotes: entry.quotes, average: avg, currency: entry.quotes[0]?.currency || 'USD' };
+        const avgUSD = entry.quotes.length
+          ? Math.round((entry.quotes.reduce((a, q) => a + toUSD(q.price, q.currency), 0) / entry.quotes.length) * 100) / 100
+          : null;
+        return { quotes: entry.quotes, average: avgUSD, currency: 'USD' };
       }
     }
   } catch { /* ignore cache parse */ }
@@ -83,7 +98,7 @@ export async function estimateModelPrice(model: GundamModel): Promise<{ quotes: 
   const realResults = await Promise.all(
     STORE_FETCHERS.map(async s => {
       const r = await s.fetcher(model);
-      return r ? ({ store: s.name, price: Math.round(r.price), currency: r.currency, url: r.url } as PriceQuote) : null;
+      return r ? ({ store: s.name, price: r.price, currency: r.currency, url: r.url } as PriceQuote) : null;
     })
   );
 
@@ -96,16 +111,12 @@ export async function estimateModelPrice(model: GundamModel): Promise<{ quotes: 
     quotes = baselineResults.filter(Boolean) as PriceQuote[];
   }
   if (!quotes.length) return null;
-  // Group by currency to avoid averaging mixed currencies
-  const byCurr = quotes.reduce((acc, q) => { (acc[q.currency] ||= []).push(q); return acc; }, {} as Record<string, PriceQuote[]>);
-  // choose the currency with most quotes; if tie, prefer USD
-  const currencies = Object.keys(byCurr);
-  const chosen = currencies.sort((a,b)=> (byCurr[b].length - byCurr[a].length) || (a==='USD'? -1: 0))[0];
-  const used = byCurr[chosen];
-  const average = Math.round(used.reduce((a, q) => a + q.price, 0) / used.length);
+  // Convert all quotes to USD and average
+  const sumUSD = quotes.reduce((a, q) => a + toUSD(q.price, q.currency), 0);
+  const average = Math.round((sumUSD / quotes.length) * 100) / 100;
 
-  try { localStorage.setItem(key, JSON.stringify({ quotes: used, ts: Date.now() } satisfies CacheEntry)); } catch { /* ignore cache set */ }
-  return { quotes: used, average, currency: chosen };
+  try { localStorage.setItem(key, JSON.stringify({ quotes, ts: Date.now() } satisfies CacheEntry)); } catch { /* ignore cache set */ }
+  return { quotes, average, currency: 'USD' };
 }
 
 export async function estimateCollectionValue(models: GundamModel[]): Promise<{ total: number; counted: number; currency: string; perModel: Record<string, number> }>{
