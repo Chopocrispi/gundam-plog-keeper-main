@@ -1,7 +1,7 @@
 import type { GundamModel } from '@/types/gundam';
 
 const BASE = 'https://gunpla.es';
-const PROXY_BASE = import.meta.env?.VITE_PROXY_BASE || '';
+const PROXY_BASE = import.meta.env?.VITE_PROXY_BASE || 'https://gundapp.xyz/api/proxy';
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
 
 function proxied(url: string) { return PROXY_BASE ? `${PROXY_BASE}?url=${encodeURIComponent(url)}` : url; }
