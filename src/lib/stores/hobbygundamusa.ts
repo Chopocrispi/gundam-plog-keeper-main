@@ -1,7 +1,8 @@
 import type { GundamGrade, GundamModel } from '@/types/gundam';
 
 const BASE = 'https://hobbygundamusa.com';
-const PROXY_BASE = import.meta.env?.VITE_PROXY_BASE || 'https://gundapp.xyz/api/proxy';
+const DEFAULT_PROXY_BASE = typeof window !== 'undefined' ? `${window.location.origin}/api/proxy` : '';
+const PROXY_BASE = import.meta.env?.VITE_PROXY_BASE || DEFAULT_PROXY_BASE;
 
 function proxied(url: string) {
   return PROXY_BASE ? `${PROXY_BASE}?url=${encodeURIComponent(url)}` : url;
