@@ -55,20 +55,50 @@ function buildSearchQueries(name: string, grade?: GundamGrade): string[] {
   return Array.from(new Set(queries.filter(Boolean)));
 }
 
+function extractProductsFromSearch(html: string): Array<{ url: string; priceEur: number }> {
+  const items: Array<{ url: string; priceEur: number }> = [];
+  // WooCommerce archives typically wrap items in <li class="product"> ... </li>
+  const liRe = /<li[^>]*class=["'][^"']*product[^"']*["'][^>]*>([\s\S]*?)<\/li>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = liRe.exec(html)) !== null) {
+    const block = match[1];
+    const hrefMatch = block.match(/href=["']((?:https?:\/\/(?:www\.)?geosanbattle\.com)?\/(?:products?|product|producto)\/[A-Za-z0-9\-_%]+\/?)["']/i);
+    if (!hrefMatch) continue;
+    const href = hrefMatch[1].startsWith('http') ? hrefMatch[1] : `${BASE}${hrefMatch[1]}`;
+    const price = parseEuroPrice(block);
+    if (price != null) {
+      items.push({ url: href, priceEur: price });
+    }
+  }
+  return items;
+}
+
 async function findFirstProductUrl(query: string): Promise<string | null> {
-  // Try common search patterns
+  // Try common search patterns (including WooCommerce search with post_type=product)
   const candidates = [
-    proxied(`${BASE}/search?q=${encodeURIComponent(query)}`),
-    proxied(`${BASE}/search?q=${encodeURIComponent(query)}&type=product`),
+    // Prioritize WooCommerce-native product search
+    proxied(`${BASE}/?s=${encodeURIComponent(query)}&post_type=product`),
     proxied(`${BASE}/?s=${encodeURIComponent(query)}`),
+    // Fall back to other potential search endpoints
+    proxied(`${BASE}/search?q=${encodeURIComponent(query)}&type=product`),
+    proxied(`${BASE}/search?q=${encodeURIComponent(query)}`),
   ];
   for (const url of candidates) {
     try {
       const res = await fetch(url, { mode: 'cors' });
       if (!res.ok) continue;
       const html = await res.text();
-      // Look for product links
-  const m = html.match(/href=["']((?:https?:\/\/(?:www\.)?geosanbattle\.com)?\/(?:products?|product|producto)\/[A-Za-z0-9\-_%]+\/?)["']/i);
+      const products = extractProductsFromSearch(html);
+      if (products.length) {
+        // Filter out very cheap items (e.g., promo cards at 0,75€). Keep items strictly over 2€
+        const filtered = products.filter(p => p.priceEur > 2);
+        const chosen = (filtered.length ? filtered : products)
+          // Prefer higher price among candidates to bias towards full kits
+          .sort((a, b) => b.priceEur - a.priceEur)[0];
+        if (chosen?.url) return chosen.url;
+      }
+      // Fallback: look for the first product-like link if no items parsed
+      const m = html.match(/href=["']((?:https?:\/\/(?:www\.)?geosanbattle\.com)?\/(?:products?|product|producto)\/[A-Za-z0-9\-_%]+\/?)["']/i);
       if (m && m[1]) {
         const href = m[1].startsWith('http') ? m[1] : `${BASE}${m[1]}`;
         return href;
@@ -79,10 +109,12 @@ async function findFirstProductUrl(query: string): Promise<string | null> {
 }
 
 function parseEuroPrice(html: string): number | null {
-  // Prefer a price with € symbol
-  const m = html.match(/€\s*([0-9]{1,4}(?:[\.,][0-9]{2})?)/);
-  if (!m || !m[1]) return null;
-  const norm = m[1].replace('.', '').replace(',', '.');
+  // Handle both formats: "€ 50,00" and "50,00€"
+  const m = html.match(/€\s*([0-9]{1,4}(?:[\.,][0-9]{2})?)|([0-9]{1,4}(?:[\.,][0-9]{2})?)\s*€/);
+  if (!m) return null;
+  const raw = (m[1] || m[2]);
+  if (!raw) return null;
+  const norm = raw.replace(/\./g, '').replace(',', '.');
   const num = parseFloat(norm);
   return Number.isFinite(num) ? num : null;
 }
