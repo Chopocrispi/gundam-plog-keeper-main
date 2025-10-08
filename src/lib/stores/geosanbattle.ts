@@ -13,18 +13,46 @@ function keyFor(model: GundamModel) {
   return `store:geosan:v1:${(model.name || '').toLowerCase()}|${model.grade || ''}`;
 }
 
-function buildSearchQuery(name: string, grade?: GundamGrade) {
-  const tokens: string[] = [];
+function gradeAbbr(grade?: GundamGrade): string | undefined {
   switch (grade) {
-    case 'High Grade (HG)': tokens.push('HG', '1/144'); break;
-    case 'Real Grade (RG)': tokens.push('RG', '1/144'); break;
-    case 'Master Grade (MG)': tokens.push('MG', '1/100'); break;
-    case 'Perfect Grade (PG)': tokens.push('PG', '1/60'); break;
-    case 'Full Mechanics (FM)': tokens.push('FM', '1/100'); break;
-    case 'Super Deformed (SD)': tokens.push('SD'); break;
+    case 'High Grade (HG)': return 'HG';
+    case 'Real Grade (RG)': return 'RG';
+    case 'Master Grade (MG)': return 'MG';
+    case 'Perfect Grade (PG)': return 'PG';
+    case 'Full Mechanics (FM)': return 'FM';
+    case 'Super Deformed (SD)': return 'SD';
+    default: return undefined;
   }
-  tokens.push(name);
-  return tokens.join(' ');
+}
+
+function normalizeName(raw: string): string {
+  // Remove common scale tokens and inline grade tokens from the name to avoid over-restricting search
+  let s = raw
+    .replace(/\b1\s*\/\s*144\b/gi, '')
+    .replace(/\b1\s*\/\s*100\b/gi, '')
+    .replace(/\b1\s*\/\s*60\b/gi, '')
+    .replace(/\b(HG|RG|MG|PG|FM|SD)\b/gi, '')
+    .replace(/\b(High Grade|Real Grade|Master Grade|Perfect Grade|Full Mechanics|Super Deformed)\b/gi, '');
+  // Collapse multiple spaces and trim
+  s = s.replace(/\s{2,}/g, ' ').trim();
+  return s;
+}
+
+function buildSearchQueries(name: string, grade?: GundamGrade): string[] {
+  const abbr = gradeAbbr(grade);
+  const cleaned = normalizeName(name);
+  const queries: string[] = [];
+  if (abbr && cleaned) queries.push(`${abbr} ${cleaned}`.trim());
+  if (cleaned) queries.push(cleaned);
+  // If the cleaned name doesn't include 'gundam', try variants with the suffix which many stores include
+  if (cleaned && !/\bgundam\b/i.test(cleaned)) {
+    if (abbr) queries.push(`${abbr} ${cleaned} Gundam`.trim());
+    queries.push(`${cleaned} Gundam`.trim());
+  }
+  // Final fallback: original name as-is
+  queries.push(name);
+  // Deduplicate while preserving order
+  return Array.from(new Set(queries.filter(Boolean)));
 }
 
 async function findFirstProductUrl(query: string): Promise<string | null> {
@@ -71,8 +99,13 @@ export async function getGeosanBattlePriceUSD(model: GundamModel): Promise<{ pri
     }
   } catch {}
 
-  const query = buildSearchQuery(name, model.grade as GundamGrade);
-  const productUrl = await findFirstProductUrl(query);
+  // Try multiple query variants, preferring "MG Aegis"-style over including scales like "1/100"
+  const queries = buildSearchQueries(name, model.grade as GundamGrade);
+  let productUrl: string | null = null;
+  for (const q of queries) {
+    productUrl = await findFirstProductUrl(q);
+    if (productUrl) break;
+  }
   if (!productUrl) return null;
   try {
     const res = await fetch(proxied(productUrl), { mode: 'cors' });
