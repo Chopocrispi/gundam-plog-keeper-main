@@ -20,7 +20,6 @@ export function ImageSelector({ imageOptions, selectedImage, onImageSelect, onCl
 
   const handleImageSelect = (url: string) => {
     onImageSelect(url);
-    onClose();
   };
 
   const validImages = imageOptions.filter(url => !previewErrors.has(url));
