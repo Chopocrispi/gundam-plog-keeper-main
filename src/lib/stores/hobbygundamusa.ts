@@ -1,8 +1,7 @@
 import type { GundamGrade, GundamModel } from '@/types/gundam';
 
 const BASE = 'https://hobbygundamusa.com';
-const DEFAULT_PROXY_BASE = typeof window !== 'undefined' ? `${window.location.origin}/api/proxy` : '';
-const PROXY_BASE = import.meta.env?.VITE_PROXY_BASE || DEFAULT_PROXY_BASE;
+const PROXY_BASE = (import.meta as any).env?.VITE_PROXY_BASE || 'https://gundapp.xyz/api/proxy';
 
 function proxied(url: string) {
   return PROXY_BASE ? `${PROXY_BASE}?url=${encodeURIComponent(url)}` : url;
@@ -10,8 +9,7 @@ function proxied(url: string) {
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
 
 function keyFor(model: GundamModel) {
-  // v2: bust older provider cache entries
-  return `store:hgusa:v2:${(model.name || '').toLowerCase()}|${model.grade || ''}`;
+  return `store:hgusa:v1:${(model.name || '').toLowerCase()}|${model.grade || ''}`;
 }
 
 function buildSearchQuery(name: string, grade?: GundamGrade) {
@@ -78,9 +76,9 @@ async function fetchProductPriceByHandle(handle: string): Promise<number | null>
     if (res.ok) {
       const data = await res.json();
       const v = data?.product?.variants?.[0];
-    const price = v?.price ?? v?.compare_at_price ?? data?.product?.price ?? data?.product?.price_min ?? null;
+      let price = v?.price ?? v?.compare_at_price ?? data?.product?.price ?? data?.product?.price_min ?? null;
       if (price != null) {
-      const num = typeof price === 'string' ? parseFloat(price) : Number(price);
+        const num = typeof price === 'string' ? parseFloat(price) : Number(price);
         if (Number.isFinite(num)) return num;
       }
     }
@@ -93,9 +91,9 @@ async function fetchProductPriceByHandle(handle: string): Promise<number | null>
     if (!res2.ok) return null;
     const data2 = await res2.json();
     const v2 = data2?.variants?.[0];
-  const priceRaw = v2?.price ?? data2?.price ?? data2?.price_min ?? null;
+    let priceRaw = v2?.price ?? data2?.price ?? data2?.price_min ?? null;
     if (priceRaw == null) return null;
-  const num = typeof priceRaw === 'string' ? parseFloat(priceRaw) : Number(priceRaw);
+    let num = typeof priceRaw === 'string' ? parseFloat(priceRaw) : Number(priceRaw);
     if (!Number.isFinite(num)) return null;
     // If looks like cents (e.g., 2300 -> 23.00)
     if (num >= 100 && num % 1 === 0) {
@@ -139,7 +137,7 @@ export async function getHobbyGundamUSAPrice(model: GundamModel): Promise<{ pric
       const cached = JSON.parse(raw) as { price: number; ts: number; url?: string };
       if (Date.now() - cached.ts < CACHE_TTL_MS) return { price: cached.price, currency: 'USD', url: cached.url };
     }
-  } catch { /* ignore cache parse */ }
+  } catch {}
 
   const query = buildSearchQuery(name, model.grade as GundamGrade);
   const handle = await findProductHandle(query);
@@ -147,6 +145,6 @@ export async function getHobbyGundamUSAPrice(model: GundamModel): Promise<{ pric
   const price = await fetchProductPriceByHandle(handle);
   if (price == null) return null;
   const url = `${BASE}/products/${handle}`;
-  try { localStorage.setItem(cacheKey, JSON.stringify({ price, ts: Date.now(), url })); } catch { /* ignore cache set */ }
+  try { localStorage.setItem(cacheKey, JSON.stringify({ price, ts: Date.now(), url })); } catch {}
   return { price, currency: 'USD', url };
 }

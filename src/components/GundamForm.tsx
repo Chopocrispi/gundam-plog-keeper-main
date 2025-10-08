@@ -8,11 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Star, Search, Loader2, Grid, Link as LinkIcon } from 'lucide-react';
+import { Star, Search, Loader2, Grid } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ImageSelector } from '@/components/ImageSelector';
-import { estimateModelPrice, type PriceQuote } from '@/lib/pricing';
 
 type Props = {
   model?: GundamModel | null;
@@ -37,43 +36,6 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
   const [imageOptions, setImageOptions] = useState<string[]>([]);
   const [showImageSelector, setShowImageSelector] = useState(false);
   const latestSearchRef = useRef(0);
-  const [pricingLoading, setPricingLoading] = useState(false);
-  const [pricingQuotes, setPricingQuotes] = useState<PriceQuote[] | null>(null);
-  const [pricingAverage, setPricingAverage] = useState<number | null>(null);
-  const [pricingCurrency, setPricingCurrency] = useState<string>('USD');
-  const [pricingUpdatedAt, setPricingUpdatedAt] = useState<number | null>(null);
-
-  // Simple EUR->USD conversion mirroring the pricing module logic
-  const eurUsdRate = () => {
-    const raw = import.meta.env?.VITE_EUR_USD_RATE as unknown as string | undefined;
-    const n = raw ? Number(raw) : NaN;
-    return Number.isFinite(n) && n > 0 ? n : 1.08;
-  };
-  const toUSD = (price: number, currency: string) => (currency === 'EUR' ? Math.round(price * eurUsdRate() * 100) / 100 : price);
-
-  const fetchPricing = useCallback(async () => {
-    const name = formData.name.trim();
-    if (!name) { setPricingQuotes(null); setPricingAverage(null); return; }
-    try {
-      setPricingLoading(true);
-      const est = await estimateModelPrice({
-        id: model?.id || 'temp',
-        name: formData.name,
-        grade: formData.grade as GundamGrade,
-        series: formData.series,
-        buildStatus: formData.buildStatus as BuildStatus,
-        createdAt: model?.createdAt || '',
-        updatedAt: model?.updatedAt || '',
-      });
-      setPricingQuotes(est?.quotes || null);
-      setPricingAverage(est?.average ?? null);
-      setPricingCurrency(est?.currency || 'USD');
-      setPricingUpdatedAt(Date.now());
-    } finally {
-      setPricingLoading(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.name, formData.grade, formData.series, formData.buildStatus, model?.id, model?.createdAt, model?.updatedAt]);
   // series is now free-text; user types it manually
 
   useEffect(() => {
@@ -156,12 +118,6 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
     return () => clearTimeout(handle);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.name, formData.grade]);
-
-  // Debounce: fetch per-store pricing when name or grade change
-  useEffect(() => {
-    const handle = setTimeout(() => { void fetchPricing(); }, 600);
-    return () => clearTimeout(handle);
-  }, [fetchPricing]);
 
   // Note: series no longer triggers image search; image lookups are based on model name (and grade).
 
@@ -252,60 +208,6 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
               onClose={() => { setShowImageSelector(false); setImageOptions([]); }}
             />
           </div>
-        )}
-      </div>
-
-      {/* Pricing panel */}
-      <div className="rounded-lg border p-3 bg-card/60">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <CardTitle className="text-sm">Store Prices</CardTitle>
-            {pricingUpdatedAt && (
-              <span className="text-xs text-muted-foreground">Updated {new Date(pricingUpdatedAt).toLocaleTimeString()}</span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {pricingLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-            <Button type="button" variant="outline" size="sm" onClick={() => void fetchPricing()} disabled={pricingLoading}>
-              Refresh
-            </Button>
-          </div>
-        </div>
-        {pricingQuotes && pricingQuotes.length > 0 ? (
-          <div className="space-y-1">
-            {pricingQuotes.map((q, idx) => (
-              <div key={idx} className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{q.store}</span>
-                <div className="flex items-center gap-3">
-                  <span className="text-foreground">
-                    {q.currency === 'EUR' ? '€' : '$'}{q.price.toFixed(2)}
-                    {q.currency !== 'USD' && (
-                      <span className="text-xs text-muted-foreground ml-1">(${toUSD(q.price, q.currency).toFixed(2)} USD)</span>
-                    )}
-                  </span>
-                  {q.url && (
-                    <a
-                      href={q.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline inline-flex items-center gap-1"
-                      title={`Open ${q.store}`}
-                    >
-                      <LinkIcon className="h-3 w-3" />
-                    </a>
-                  )}
-                </div>
-              </div>
-            ))}
-            {pricingAverage != null && (
-              <div className="pt-2 mt-1 border-t flex items-center justify-between text-sm font-medium">
-                <span>Average</span>
-                <span>{pricingCurrency === 'EUR' ? '€' : '$'}{pricingAverage.toFixed(2)} {pricingCurrency}</span>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="text-sm text-muted-foreground">No prices yet. Start typing the name.</div>
         )}
       </div>
 

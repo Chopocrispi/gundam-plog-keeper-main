@@ -52,16 +52,7 @@ export function ImageSelector({ imageOptions, selectedImage, onImageSelect, onCl
               >
                 <div className="aspect-square overflow-hidden rounded-md">
                   <img
-                    src={(() => {
-                      try {
-                        const u = new URL(imageUrl);
-                        const isGunplaCDN = u.hostname === 'cdn.gunpladb.net';
-                        const proxyBase = (import.meta as any)?.env?.VITE_PROXY_BASE || `${window.location.origin}/api/proxy`;
-                        return isGunplaCDN && proxyBase ? `${proxyBase}?url=${encodeURIComponent(imageUrl)}` : imageUrl;
-                      } catch {
-                        return imageUrl;
-                      }
-                    })()}
+                    src={imageUrl}
                     alt={`Option ${index + 1}`}
                     className="w-full h-full object-cover transition-transform group-hover:scale-105"
                     onError={() => handleImageError(imageUrl)}

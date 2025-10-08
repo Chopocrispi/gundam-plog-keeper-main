@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Star, Edit, Trash2, Calendar, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
-import { estimateModelPrice } from '@/lib/pricing';
+import { getHobbyGundamUSAPrice } from '@/lib/stores/hobbygundamusa';
 
 interface GundamCardProps {
   model: GundamModel;
@@ -22,18 +22,14 @@ const statusColors = {
 };
 
 export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
-  const [avgPrice, setAvgPrice] = useState<number | null>(null);
-  const [currency, setCurrency] = useState<string>('USD');
+  const [storePrice, setStorePrice] = useState<{ price: number; url?: string } | null>(null);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const est = await estimateModelPrice(model);
+      const p = await getHobbyGundamUSAPrice(model);
       if (!mounted) return;
-      if (est?.average != null) {
-        setAvgPrice(est.average);
-        if (est.currency) setCurrency(est.currency);
-      }
+      if (p) setStorePrice({ price: Math.round(p.price), url: p.url });
     })();
     return () => { mounted = false; };
   }, [model.id, model.name, model.grade]);
@@ -59,18 +55,9 @@ export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
     <Card className="group overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 bg-gradient-to-br from-card to-card/80">
       <CardHeader className="p-0">
         <div className="relative overflow-hidden bg-muted/20 flex items-center justify-center max-h-64 min-h-[12rem] sm:max-h-72">
-            {model.imageUrl ? (
-              <img
-                src={(() => {
-                  try {
-                    const u = new URL(model.imageUrl!);
-                    const isGunplaCDN = u.hostname === 'cdn.gunpladb.net';
-                    const proxyBase = (import.meta as any)?.env?.VITE_PROXY_BASE || `${window.location.origin}/api/proxy`;
-                    return isGunplaCDN && proxyBase ? `${proxyBase}?url=${encodeURIComponent(model.imageUrl!)}` : model.imageUrl!;
-                  } catch {
-                    return model.imageUrl!;
-                  }
-                })()}
+          {model.imageUrl ? (
+            <img
+              src={model.imageUrl}
               alt={model.name}
               className="w-full h-full object-contain block transition-transform duration-300 group-hover:scale-105"
               onError={(e) => {
@@ -102,10 +89,10 @@ export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
             <Badge variant="outline" className="text-xs">
               {model.grade}
             </Badge>
-            {avgPrice != null && (
-              <span className="text-xs font-medium text-gundam-red">
-                {currency === 'EUR' ? '€' : '$'}{avgPrice.toFixed(2)}
-              </span>
+            {storePrice && (
+              <a href={storePrice.url} target="_blank" rel="noreferrer" className="text-xs font-medium text-gundam-red hover:underline">
+                ${storePrice.price.toFixed(2)}
+              </a>
             )}
             {renderStars()}
           </div>

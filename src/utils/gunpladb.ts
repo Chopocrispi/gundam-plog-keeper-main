@@ -2960,14 +2960,7 @@ export async function fetchGundamImage(modelName: string): Promise<GunplaDBRespo
  */
 export async function validateImageUrl(url: string): Promise<boolean> {
   try {
-    // HEAD to CDN often fails due to CORS; route via our proxy when available
-    const proxy = import.meta.env?.VITE_PROXY_BASE || (typeof window !== 'undefined' ? `${window.location.origin}/api/proxy` : '');
-    const target = proxy ? `${proxy}?url=${encodeURIComponent(url)}` : url;
-    let response = await fetch(target, { method: 'HEAD' });
-    // Some CDNs block HEAD, return 403; try GET without downloading full body (browser will fetch headers first)
-    if (!response.ok && response.status === 403) {
-      response = await fetch(target, { method: 'GET' });
-    }
+    const response = await fetch(url, { method: 'HEAD' });
     return response.ok;
   } catch {
     return false;

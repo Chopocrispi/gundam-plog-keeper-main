@@ -424,7 +424,7 @@ const Index = () => {
         </div>
       </div>
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent aria-describedby={undefined} className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingModel ? 'Edit Model' : 'Add New Model'}
