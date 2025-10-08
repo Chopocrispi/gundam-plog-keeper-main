@@ -3,6 +3,15 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // Simple allowlist to avoid open proxy issues
 const ALLOWED_HOSTS = new Set([
   'hobbygundamusa.com',
+  'www.hobbygundamusa.com',
+  'geosanbattle.com',
+  'www.geosanbattle.com',
+  'gunpla.es',
+  'www.gunpla.es',
+  'gundamplacestore.com',
+  'www.gundamplacestore.com',
+  'www.mechauniverse.es',
+  'mechauniverse.es',
 ]);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -34,7 +43,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const buf = await response.arrayBuffer();
       return res.send(Buffer.from(buf));
     }
-  } catch (e: any) {
-    return res.status(500).json({ error: e?.message || 'Proxy error' });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Proxy error';
+    return res.status(500).json({ error: msg });
   }
 }

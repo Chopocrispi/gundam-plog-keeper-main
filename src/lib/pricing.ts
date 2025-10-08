@@ -1,5 +1,5 @@
 import type { GundamModel, GundamGrade } from '@/types/gundam';
-import { getHobbyGundamUSAPrice } from '@/lib/stores/hobbygundamusa';
+import { STORE_FETCHERS } from '@/lib/stores/providers';
 
 export type PriceQuote = {
   store: string;
@@ -77,23 +77,35 @@ export async function estimateModelPrice(model: GundamModel): Promise<{ quotes: 
         return { quotes: entry.quotes, average: avg, currency: entry.quotes[0]?.currency || 'USD' };
       }
     }
-  } catch {}
+  } catch { /* ignore cache parse */ }
 
-  // Try real store first
-  const real = await getHobbyGundamUSAPrice(model);
-  const baselineResults = await Promise.all(
-    providers.map(p => p.search(name, model.grade as GundamGrade))
+  // Try all real stores first
+  const realResults = await Promise.all(
+    STORE_FETCHERS.map(async s => {
+      const r = await s.fetcher(model);
+      return r ? ({ store: s.name, price: Math.round(r.price), currency: r.currency, url: r.url } as PriceQuote) : null;
+    })
   );
 
-  const quotes = [
-    ...(real ? [{ store: 'Hobby Gundam USA', price: Math.round(real.price), currency: real.currency, url: real.url }] : []),
-    ...(baselineResults.filter(Boolean) as PriceQuote[])
-  ];
+  let quotes = realResults.filter(Boolean) as PriceQuote[];
+  if (!quotes.length) {
+    // Fallback to baselines if no real store hit
+    const baselineResults = await Promise.all(
+      providers.map(p => p.search(name, model.grade as GundamGrade))
+    );
+    quotes = baselineResults.filter(Boolean) as PriceQuote[];
+  }
   if (!quotes.length) return null;
-  const average = Math.round(quotes.reduce((a, q) => a + q.price, 0) / quotes.length);
+  // Group by currency to avoid averaging mixed currencies
+  const byCurr = quotes.reduce((acc, q) => { (acc[q.currency] ||= []).push(q); return acc; }, {} as Record<string, PriceQuote[]>);
+  // choose the currency with most quotes; if tie, prefer USD
+  const currencies = Object.keys(byCurr);
+  const chosen = currencies.sort((a,b)=> (byCurr[b].length - byCurr[a].length) || (a==='USD'? -1: 0))[0];
+  const used = byCurr[chosen];
+  const average = Math.round(used.reduce((a, q) => a + q.price, 0) / used.length);
 
-  try { localStorage.setItem(key, JSON.stringify({ quotes, ts: Date.now() } satisfies CacheEntry)); } catch {}
-  return { quotes, average, currency: quotes[0].currency };
+  try { localStorage.setItem(key, JSON.stringify({ quotes: used, ts: Date.now() } satisfies CacheEntry)); } catch { /* ignore cache set */ }
+  return { quotes: used, average, currency: chosen };
 }
 
 export async function estimateCollectionValue(models: GundamModel[]): Promise<{ total: number; counted: number; currency: string; perModel: Record<string, number> }>{

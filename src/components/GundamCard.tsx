@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Star, Edit, Trash2, Calendar, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
-import { getHobbyGundamUSAPrice } from '@/lib/stores/hobbygundamusa';
+import { estimateModelPrice } from '@/lib/pricing';
 
 interface GundamCardProps {
   model: GundamModel;
@@ -22,14 +22,18 @@ const statusColors = {
 };
 
 export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
-  const [storePrice, setStorePrice] = useState<{ price: number; url?: string } | null>(null);
+  const [avgPrice, setAvgPrice] = useState<number | null>(null);
+  const [currency, setCurrency] = useState<string>('USD');
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const p = await getHobbyGundamUSAPrice(model);
+      const est = await estimateModelPrice(model);
       if (!mounted) return;
-      if (p) setStorePrice({ price: Math.round(p.price), url: p.url });
+      if (est?.average != null) {
+        setAvgPrice(est.average);
+        if (est.currency) setCurrency(est.currency);
+      }
     })();
     return () => { mounted = false; };
   }, [model.id, model.name, model.grade]);
@@ -89,10 +93,10 @@ export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
             <Badge variant="outline" className="text-xs">
               {model.grade}
             </Badge>
-            {storePrice && (
-              <a href={storePrice.url} target="_blank" rel="noreferrer" className="text-xs font-medium text-gundam-red hover:underline">
-                ${storePrice.price.toFixed(2)}
-              </a>
+            {avgPrice != null && (
+              <span className="text-xs font-medium text-gundam-red">
+                {currency === 'EUR' ? '€' : '$'}{avgPrice.toFixed(2)}
+              </span>
             )}
             {renderStars()}
           </div>
