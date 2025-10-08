@@ -2,11 +2,8 @@ import { GundamModel } from '@/types/gundam';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Star, Edit, Trash2, Calendar, DollarSign } from 'lucide-react';
+import { Star, Edit, Trash2, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useEffect, useState } from 'react';
-import { getHobbyGundamUSAPrice } from '@/lib/stores/hobbygundamusa';
-import { getGeosanBattlePriceUSD } from '@/lib/stores/geosanbattle';
 
 interface GundamCardProps {
   model: GundamModel;
@@ -23,26 +20,6 @@ const statusColors = {
 };
 
 export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
-  const [avgPrice, setAvgPrice] = useState<number | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      const [p1, p2] = await Promise.all([
-        getHobbyGundamUSAPrice(model),
-        getGeosanBattlePriceUSD(model)
-      ]);
-      if (!mounted) return;
-      const prices = [p1?.price, p2?.price].filter((x): x is number => typeof x === 'number' && Number.isFinite(x));
-      if (prices.length) {
-        const avg = Math.round((prices.reduce((a, b) => a + b, 0) / prices.length) * 100) / 100;
-        setAvgPrice(avg);
-      } else {
-        setAvgPrice(null);
-      }
-    })();
-    return () => { mounted = false; };
-  }, [model.id, model.name, model.grade]);
   const renderStars = () => {
     if (!model.rating) return null;
     
@@ -99,9 +76,6 @@ export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
             <Badge variant="outline" className="text-xs">
               {model.grade}
             </Badge>
-            {avgPrice != null && (
-              <span className="text-xs font-medium text-gundam-red">${avgPrice.toFixed(2)}</span>
-            )}
             {renderStars()}
           </div>
         </div>
@@ -109,12 +83,6 @@ export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
         <div className="space-y-2 text-sm text-muted-foreground">
           <div>{model.series}</div>
           <div className="flex items-center justify-between">
-            {model.price && (
-              <div className="flex items-center gap-1">
-                <DollarSign className="h-3 w-3" />
-                <span>${model.price}</span>
-              </div>
-            )}
             {model.completionDate && (
               <div className="flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
