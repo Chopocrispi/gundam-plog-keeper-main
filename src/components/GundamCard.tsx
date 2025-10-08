@@ -59,9 +59,18 @@ export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
     <Card className="group overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 bg-gradient-to-br from-card to-card/80">
       <CardHeader className="p-0">
         <div className="relative overflow-hidden bg-muted/20 flex items-center justify-center max-h-64 min-h-[12rem] sm:max-h-72">
-          {model.imageUrl ? (
-            <img
-              src={model.imageUrl}
+            {model.imageUrl ? (
+              <img
+                src={(() => {
+                  try {
+                    const u = new URL(model.imageUrl!);
+                    const isGunplaCDN = u.hostname === 'cdn.gunpladb.net';
+                    const proxyBase = (import.meta as any)?.env?.VITE_PROXY_BASE || `${window.location.origin}/api/proxy`;
+                    return isGunplaCDN && proxyBase ? `${proxyBase}?url=${encodeURIComponent(model.imageUrl!)}` : model.imageUrl!;
+                  } catch {
+                    return model.imageUrl!;
+                  }
+                })()}
               alt={model.name}
               className="w-full h-full object-contain block transition-transform duration-300 group-hover:scale-105"
               onError={(e) => {
