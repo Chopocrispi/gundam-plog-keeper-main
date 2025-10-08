@@ -7,6 +7,56 @@ All colors MUST be HSL.
 */
 
 @layer base {
+  /*
+    Responsive root font-size so rem-based sizing (Tailwind defaults) scales
+    smoothly with viewport width. Adjust the clamp() values to change min/max.
+  */
+  html {
+    /* Make scaling more aggressive so UI elements grow on larger screens.
+       Scales between 15px and 20px. */
+    font-size: clamp(15px, calc(14px + 0.9vw), 20px);
+    /* enable text-size-adjust for mobile browsers */
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Floating Add button: gentle pulse and lift to make it feel alive */
+  .floating-add-btn {
+    transition: transform 200ms cubic-bezier(.2,.9,.3,1), box-shadow 200ms cubic-bezier(.2,.9,.3,1), opacity 180ms ease;
+    will-change: transform, box-shadow;
+    /* subtle base shadow */
+    box-shadow: var(--shadow-card);
+  }
+
+  .floating-add-btn:hover {
+    transform: translateY(-6px) scale(1.04);
+    /* stronger shadow on hover */
+    box-shadow: 0 14px 36px -6px rgba(16,24,40,0.35), var(--shadow-elevated);
+  }
+
+  .floating-add-btn:active {
+    transform: translateY(-2px) scale(0.98);
+    /* pressed shadow */
+    box-shadow: 0 6px 18px -6px rgba(16,24,40,0.28);
+  }
+
+  .floating-add-pulse {
+    position: absolute;
+    width: 3.25rem;
+    height: 3.25rem;
+    border-radius: 9999px;
+    z-index: 0;
+    pointer-events: none;
+    background: radial-gradient(circle at center, rgba(255,0,0,0.14), rgba(255,0,0,0.04) 40%, transparent 60%);
+    /* slower, more relaxed pulse */
+    animation: floating-pulse 3600ms ease-out infinite;
+    transform-origin: center;
+  }
+
+  @keyframes floating-pulse {
+    0% { transform: scale(0.92); opacity: .85 }
+    65% { transform: scale(1.5); opacity: 0 }
+    100% { transform: scale(1.5); opacity: 0 }
+  }
   :root {
     --background: 0 0% 98%;
     --foreground: 210 6% 21%;

@@ -374,15 +374,18 @@ const Index = () => {
 
       {/* Add/Edit Form Dialog */}
   {/* Floating Add Model button (bottom-right) */}
-  <div className="fixed right-4 bottom-4 z-50">
-        <Button
-          onClick={() => setShowForm(true)}
-          aria-label="Add model"
-          title="Add model"
-          className="h-14 w-14 rounded-full p-0 bg-gradient-to-r from-primary to-gundam-red hover:from-primary/90 hover:to-gundam-red/90 shadow-lg flex items-center justify-center"
-        >
-          <Plus className="h-5 w-5" />
-        </Button>
+      <div className="fixed right-4 bottom-4 z-50">
+        <div className="relative h-14 w-14">
+          <div className="floating-add-pulse" />
+          <Button
+            onClick={() => setShowForm(true)}
+            aria-label="Add model"
+            title="Add model"
+            className="floating-add-btn absolute inset-0 h-14 w-14 rounded-full p-0 bg-gradient-to-r from-primary to-gundam-red hover:from-primary/90 hover:to-gundam-red/90 shadow-lg flex items-center justify-center"
+          >
+            <Plus className="h-5 w-5" />
+          </Button>
+        </div>
       </div>
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
