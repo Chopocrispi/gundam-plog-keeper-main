@@ -9,7 +9,8 @@ function proxied(url: string) {
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
 
 function keyFor(model: GundamModel) {
-  return `store:hgusa:v1:${(model.name || '').toLowerCase()}|${model.grade || ''}`;
+  // v2: bust older provider cache entries
+  return `store:hgusa:v2:${(model.name || '').toLowerCase()}|${model.grade || ''}`;
 }
 
 function buildSearchQuery(name: string, grade?: GundamGrade) {

@@ -14,7 +14,22 @@ type CacheEntry = { quotes: PriceQuote[]; ts: number };
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
 
 function cacheKey(name: string, grade?: string) {
-  return `pricecache:v1:${name.toLowerCase()}|${grade || ''}`;
+  // v2: bust old caches that contained baseline/sample quotes
+  return `pricecache:v2:${name.toLowerCase()}|${grade || ''}`;
+}
+
+let purgedOldPriceCache = false;
+function purgeOldPriceCachesOnce() {
+  if (purgedOldPriceCache) return;
+  purgedOldPriceCache = true;
+  try {
+    const toRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('pricecache:v1:')) toRemove.push(k);
+    }
+    toRemove.forEach(k => localStorage.removeItem(k));
+  } catch { /* ignore */ }
 }
 
 // Convert a quote to USD using a simple, configurable rate for EUR→USD.
@@ -31,6 +46,7 @@ function toUSD(price: number, currency: string): number {
 }
 
 export async function estimateModelPrice(model: GundamModel): Promise<{ quotes: PriceQuote[]; average: number | null; currency: string } | null> {
+  purgeOldPriceCachesOnce();
   const name = model.name?.trim();
   if (!name) return null;
   const key = cacheKey(name, model.grade);
