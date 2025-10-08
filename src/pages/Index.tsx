@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { GundamModel } from '@/types/gundam';
 import { GundamCard } from '@/components/GundamCard';
 import { GundamForm } from '@/components/GundamForm';
@@ -16,6 +17,7 @@ import supabase from '@/lib/supabase';
 
 const Index = () => {
   const { toast } = useToast();
+  const { t } = useTranslation();
   const { user, signedIn } = useAuth();
   const [models, setModels] = useState<GundamModel[]>([]);
   const [filteredModels, setFilteredModels] = useState<GundamModel[]>([]);
@@ -262,10 +264,10 @@ const Index = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-gundam-red bg-clip-text text-transparent">
-                Gundam Collection
+                {t('app.title')}
               </h1>
               <p className="text-muted-foreground mt-1">
-                Track and manage your Gunpla model kits
+                {t('app.subtitle')}
               </p>
             </div>
             {/* header actions (sign in, etc.) — floating Add Model button moved to bottom-left */}
@@ -282,7 +284,7 @@ const Index = () => {
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search models..."
+              placeholder={t('app.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -292,10 +294,10 @@ const Index = () => {
           <Select value={filterGrade} onValueChange={setFilterGrade}>
             <SelectTrigger className="w-full sm:w-[180px]">
               <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Filter by grade" />
+              <SelectValue placeholder={t('app.filterByGrade')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Grades</SelectItem>
+              <SelectItem value="all">{t('app.allGrades')}</SelectItem>
               <SelectItem value="High Grade (HG)">High Grade (HG)</SelectItem>
               <SelectItem value="Real Grade (RG)">Real Grade (RG)</SelectItem>
               <SelectItem value="Master Grade (MG)">Master Grade (MG)</SelectItem>

@@ -39,7 +39,8 @@ export function ImageSelector({ imageOptions, selectedImage, onImageSelect, onCl
             </Button>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="max-h-64 overflow-auto p-2">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
             {validImages.map((imageUrl, index) => (
               <div
                 key={imageUrl}
@@ -67,6 +68,7 @@ export function ImageSelector({ imageOptions, selectedImage, onImageSelect, onCl
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-md" />
               </div>
             ))}
+            </div>
           </div>
           
           {validImages.length > 0 && (
