@@ -2,7 +2,7 @@
 
 ## Project Overview
 - This is a Vite + React + TypeScript web app, using shadcn-ui and Tailwind CSS for UI.
-- The project was generated and is managed via Lovable (https://lovable.dev), which can auto-commit code changes.
+The project was generated as a Vite + React + TypeScript app and is maintained in this repository.
 - Main entry: `src/main.tsx` mounts the app to `#root` in `index.html`.
 
 ## Directory Structure
@@ -20,8 +20,8 @@
 - Forms and validation use `zod` and `@hookform/resolvers`.
 - Routing is handled by `react-router-dom`.
 - Toasts/notifications use `sonner` and custom hooks in `hooks/use-toast.ts`.
-- Charts use `recharts`.
-- Component tagging for Lovable is enabled in Vite config via `lovable-tagger` (see `vite.config.ts`).
+  - Charts use `recharts`.
+  - Component tagging is enabled in the Vite config via dev tooling (see `vite.config.ts`).
 
 ## Developer Workflows
 - **Install dependencies:** `npm i`
@@ -29,13 +29,13 @@
 - **Build for production:** `npm run build`
 - **Lint:** `npm run lint`
 - **Preview build:** `npm run preview`
-- **Deploy:** Use Lovable web UI (see README) or publish static build.
+ - **Deploy:** Publish the static `dist/` output to your preferred static host (Vercel, Netlify, GitHub Pages, etc.).
 
 ## Integration Points
 - External UI: shadcn-ui, Radix UI, Tailwind CSS.
-- Data validation: zod.
-- Component tagging: `lovable-tagger` plugin (development mode only).
-- Custom domain and deployment managed via Lovable (see README for details).
+-- Data validation: zod.
+-- Component tagging: a dev-time plugin may add metadata to components (see `vite.config.ts`).
+-- Custom domain and deployment are managed outside this repo; see your hosting provider's docs.
 
 ## Examples
 - Importing a UI component:
@@ -52,7 +52,7 @@
   ```
 
 ## References
-- See `README.md` for editing, deployment, and Lovable integration details.
+-- See `README.md` for editing and deployment instructions.
 - See `vite.config.ts` and `tsconfig.json` for build and alias configuration.
 - UI patterns: `src/components/ui/`
 - Types: `src/types/`

@@ -1,10 +1,12 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 
 const Home: React.FC = () => {
   const { user, signedIn, signIn } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   React.useEffect(() => {
@@ -17,8 +19,8 @@ const Home: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20">
       <div className="container mx-auto px-6 py-24">
         <div className="max-w-3xl mx-auto text-center">
-          <h1 className="text-5xl font-extrabold text-gundam-red mb-4">Gundam Collection</h1>
-          <p className="text-lg text-muted-foreground mb-8">Track, manage and showcase your Gunpla model kits. Sign in to save your collection to the cloud and access it from anywhere.</p>
+          <h1 className="text-5xl font-extrabold text-gundam-red mb-4">{t('app.title')}</h1>
+          <p className="text-lg text-muted-foreground mb-8">{t('app.subtitle')}</p>
 
           <div className="flex items-center justify-center gap-4">
             {!signedIn ? (

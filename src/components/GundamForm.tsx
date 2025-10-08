@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { GundamModel, GundamGrade, BuildStatus } from '@/types/gundam';
 import { fetchGundamImages, searchGunplaImagesByKeywords } from '@/utils/gunpladb';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ type Props = {
 
 export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const [formData, setFormData] = useState(() => ({
     name: model?.name || '',
@@ -33,6 +35,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
   const [isSearchingImage, setIsSearchingImage] = useState(false);
   const [imageOptions, setImageOptions] = useState<string[]>([]);
   const [showImageSelector, setShowImageSelector] = useState(false);
+  const latestSearchRef = useRef(0);
   // series is now free-text; user types it manually
 
   useEffect(() => {
@@ -51,12 +54,9 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
   // ...existing code...
 
   const handleManualImageSearch = useCallback(async () => {
+    const mySearchId = ++latestSearchRef.current;
     if (!formData.name.trim()) {
-      toast({
-        title: 'Enter Model Name',
-        description: 'Please enter a model name to search for images.',
-        variant: 'destructive',
-      });
+      // silently ignore if name is empty
       return;
     }
 
@@ -64,19 +64,16 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
     try {
     // Try the existing fetch-based guesser first (do not include series)
     const result = await fetchGundamImages(formData.name, formData.grade as GundamGrade);
+      if (mySearchId !== latestSearchRef.current) return; // stale
       if (result.success && result.imageUrl) {
         setFormData(prev => ({ ...prev, imageUrl: result.imageUrl! }));
         if (result.imageOptions && result.imageOptions.length > 1) {
           setImageOptions(result.imageOptions);
           setShowImageSelector(true);
-          toast({
-            title: 'Multiple Images Found',
-            description: `Found ${result.imageOptions.length} images. Click the grid icon to choose.`,
-          });
+          // no toast
         } else {
-          toast({ title: 'Image Found', description: 'Successfully found reference image from GunplaDB.' });
+          // no toast
         }
-        setIsSearchingImage(false);
         return;
       }
 
@@ -90,54 +87,37 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
         .filter(w => w.length > 1);
 
     const urls = searchGunplaImagesByKeywords(keywords, formData.grade);
+      if (mySearchId !== latestSearchRef.current) return; // stale
       if (urls.length > 0) {
         setFormData(prev => ({ ...prev, imageUrl: urls[0] }));
         if (urls.length > 1) {
           setImageOptions(urls);
           setShowImageSelector(true);
-          toast({
-            title: 'Multiple Images Found',
-            description: `Found ${urls.length} images. Click the grid icon to choose.`,
-          });
+          // no toast
         } else {
-          toast({ title: 'Image Found', description: 'Found a matching image from local index.' });
+          // no toast
         }
       } else {
-        toast({ title: 'Image Not Found', description: 'Could not find a reference image for this model.', variant: 'destructive' });
+        // no toast on not found
       }
     } catch (error) {
-      toast({ title: 'Search Failed', description: 'Failed to search for image. Please try again.', variant: 'destructive' });
+      // no toast on error; fail silently
       console.error('Manual image search error:', error);
     }
-    setIsSearchingImage(false);
+    // Only clear searching state if this is still the latest search
+    if (mySearchId === latestSearchRef.current) setIsSearchingImage(false);
   }, [formData, toast]);
 
-  // Debounce: when user stops typing the name, automatically trigger image search
+  // Debounce: trigger image search when name or grade change, but only once after 600ms
   useEffect(() => {
     const name = formData.name.trim();
     if (!name) return;
     const handle = setTimeout(() => {
-      // trigger the existing manual search which will open the selector on results
       void handleManualImageSearch();
     }, 600);
-
     return () => clearTimeout(handle);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.name]);
-
-  // When grade changes, re-run the image search (debounced). Only trigger if a name exists.
-  useEffect(() => {
-    const name = formData.name.trim();
-    if (!name) return;
-    const handle = setTimeout(() => {
-      // Call the current search function. We intentionally omit it from the deps
-      // to avoid re-running when the search itself updates formData (imageUrl).
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      void handleManualImageSearch();
-    }, 600);
-    return () => clearTimeout(handle);
-  // only re-run when the grade or name change
-  }, [formData.grade, formData.name]);
+  }, [formData.name, formData.grade]);
 
   // Note: series no longer triggers image search; image lookups are based on model name (and grade).
 
@@ -162,15 +142,15 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <Label>Name</Label>
+          <Label>{t('form.name')}</Label>
           <Input value={formData.name} onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))} />
         </div>
         <div>
-            <Label>Series</Label>
+            <Label>{t('form.series')}</Label>
             <Input value={formData.series} onChange={e => setFormData(prev => ({ ...prev, series: e.target.value }))} placeholder="Type series (e.g. UC, SEED, IBO)" />
         </div>
         <div>
-          <Label>Grade</Label>
+          <Label>{t('form.grade')}</Label>
           <Select value={formData.grade} onValueChange={v => setFormData(prev => ({ ...prev, grade: v as GundamGrade }))}>
             <SelectTrigger>
               <SelectValue />
@@ -188,7 +168,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
       </div>
 
       <div>
-        <Label>Build Status</Label>
+  <Label>{t('form.buildStatus')}</Label>
   <Select value={formData.buildStatus} onValueChange={v => setFormData(prev => ({ ...prev, buildStatus: v as BuildStatus }))}>
           <SelectTrigger>
             <SelectValue />
@@ -204,7 +184,12 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
       </div>
 
       <div>
-        <Label>Image</Label>
+  <Label>{t('form.notes')}</Label>
+        <Textarea value={formData.notes} onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))} />
+      </div>
+
+      <div>
+  <Label>{t('form.image')}</Label>
         <div className="flex items-center gap-2">
           <Button type="button" onClick={() => setShowImageSelector(prev => !prev)}>
             <Grid />
@@ -226,14 +211,9 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
         )}
       </div>
 
-      <div>
-        <Label>Notes</Label>
-        <Textarea value={formData.notes} onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))} />
-      </div>
-
       <div className="flex gap-2 justify-end">
-        <Button variant="outline" type="button" onClick={onCancel}>Cancel</Button>
-        <Button type="submit">Save</Button>
+  <Button variant="outline" type="button" onClick={onCancel}>{t('form.cancel')}</Button>
+  <Button type="submit">{t('form.save')}</Button>
       </div>
     </form>
   );
