@@ -139,8 +139,8 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
         <div>
           <Label>{t('form.name')}</Label>
           <Input value={formData.name} onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))} />
@@ -191,7 +191,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
       <div>
   <Label>{t('form.image')}</Label>
         <div className="flex items-center gap-2">
-          <Button type="button" onClick={() => setShowImageSelector(prev => !prev)}>
+          <Button type="button" size="icon" className="h-9 w-9 sm:h-10 sm:w-10" onClick={() => setShowImageSelector(prev => !prev)}>
             <Grid />
           </Button>
           {formData.imageUrl && (

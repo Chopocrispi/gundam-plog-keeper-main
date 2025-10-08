@@ -340,9 +340,9 @@ const Index = () => {
 
         {/* Models Grid/List */}
         {filteredModels.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">🤖</div>
-            <h3 className="text-xl font-semibold mb-2">No Models Found</h3>
+          <div className="text-center py-10 sm:py-12">
+            <div className="text-5xl sm:text-6xl mb-3 sm:mb-4">🤖</div>
+            <h3 className="text-lg sm:text-xl font-semibold mb-2">No Models Found</h3>
             <p className="text-muted-foreground mb-4">
               {models.length === 0 
                 ? "Start building your collection by adding your first Gundam model!"
@@ -359,7 +359,7 @@ const Index = () => {
         ) : (
           <div className={
             viewMode === 'grid' 
-              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+              ? "grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6"
               : "space-y-4"
           }>
             {filteredModels.map((model) => (
@@ -390,7 +390,7 @@ const Index = () => {
         </div>
       </div>
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingModel ? 'Edit Model' : 'Add New Model'}
