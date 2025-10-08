@@ -68,7 +68,7 @@ async function findFirstProductUrl(query: string): Promise<string | null> {
       if (!res.ok) continue;
       const html = await res.text();
       // Look for product links
-      const m = html.match(/href=["']((?:https?:\/\/geosanbattle\.com)?\/(?:products?|product)\/[A-Za-z0-9\-_%]+)["']/i);
+  const m = html.match(/href=["']((?:https?:\/\/(?:www\.)?geosanbattle\.com)?\/(?:products?|product|producto)\/[A-Za-z0-9\-_%]+\/?)["']/i);
       if (m && m[1]) {
         const href = m[1].startsWith('http') ? m[1] : `${BASE}${m[1]}`;
         return href;
