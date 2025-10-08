@@ -111,6 +111,19 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
     setIsSearchingImage(false);
   }, [formData, toast]);
 
+  // Debounce: when user stops typing the name, automatically trigger image search
+  useEffect(() => {
+    const name = formData.name.trim();
+    if (!name) return;
+    const handle = setTimeout(() => {
+      // trigger the existing manual search which will open the selector on results
+      void handleManualImageSearch();
+    }, 600);
+
+    return () => clearTimeout(handle);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.name]);
+
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!formData.name.trim()) {
@@ -178,33 +191,24 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
       </div>
 
       <div>
-        <Label>Image URL</Label>
-        <div className="flex gap-2">
-          <Input value={formData.imageUrl} onChange={e => setFormData(prev => ({ ...prev, imageUrl: e.target.value }))} />
-          <Button type="button" onClick={handleManualImageSearch} disabled={isSearchingImage}>
-            {isSearchingImage ? <Loader2 className="animate-spin" /> : <Search />}
-          </Button>
+        <Label>Image</Label>
+        <div className="flex items-center gap-2">
           <Button type="button" onClick={() => setShowImageSelector(prev => !prev)}>
             <Grid />
           </Button>
+          {formData.imageUrl && (
+            <img src={formData.imageUrl} alt="selected" className="h-12 w-12 object-cover rounded" />
+          )}
+          {isSearchingImage && <Loader2 className="animate-spin" />}
         </div>
-        {imageOptions.length > 0 && (
+        {imageOptions.length > 0 && showImageSelector && (
           <div className="mt-2">
-            <p className="text-sm text-muted-foreground">Found {imageOptions.length} images.</p>
-            {showImageSelector ? (
-              <ImageSelector
-                imageOptions={imageOptions}
-                selectedImage={formData.imageUrl}
-                onImageSelect={url => setFormData(prev => ({ ...prev, imageUrl: url }))}
-                onClose={() => setShowImageSelector(false)}
-              />
-            ) : (
-              <div className="mt-2 grid grid-cols-6 gap-2">
-                {imageOptions.slice(0, 6).map((url) => (
-                  <img key={url} src={url} alt="preview" className="h-16 w-16 object-cover rounded" onError={() => { /* ignore */ }} />
-                ))}
-              </div>
-            )}
+            <ImageSelector
+              imageOptions={imageOptions}
+              selectedImage={formData.imageUrl}
+              onImageSelect={url => setFormData(prev => ({ ...prev, imageUrl: url }))}
+              onClose={() => { setShowImageSelector(false); setImageOptions([]); }}
+            />
           </div>
         )}
       </div>
