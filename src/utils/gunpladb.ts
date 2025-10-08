@@ -1,11 +1,120 @@
 /**
+ * Series helpers
+ */
+const SERIES_TOKEN_MAP: Record<string, string[]> = {
+  'Universal Century': ['uc', 'universal', 'unicorn'],
+  'SEED': ['seed'],
+  'Iron Blooded Orphans': ['ibo', 'ironblood', 'iron-blood'],
+  '00': ['gundam00', '00'],
+  'WING': ['wing', 'winggundam'],
+  'AGE': ['age'],
+  'Reconguista': ['reconguista', 'reconguistaing', 'g-reconguista'],
+  'Witch from mercury': ['witchfrommercury', 'witch-from-mercury', 'witch', 'mercury'],
+  '08TH MS Team': ['08th', '08thms', '08thmsteam', '08th-ms-team'],
+  'Build Divers': ['builddivers', 'build-divers', 'builddiversrerise', 'builddivers-rerise'],
+  'OTHER': []
+};
+
+export function inferSeriesFromFilename(filename: string): string | undefined {
+  const ln = filename.toLowerCase();
+  for (const [series, tokens] of Object.entries(SERIES_TOKEN_MAP)) {
+    for (const t of tokens) {
+      if (t && ln.includes(t)) return series;
+    }
+  }
+  return undefined;
+}
+
+// Prefer series tokens that appear near the start of the filename (after grade prefix)
+export function inferSeriesFromFilenamePrefix(filename: string): string | undefined {
+  const ln = filename.toLowerCase();
+  // take the first segment before common separators — this is where grade/series prefixes live
+  const firstSegment = ln.split(/[-_\s]/)[0] || ln;
+  for (const [series, tokens] of Object.entries(SERIES_TOKEN_MAP)) {
+    for (const t of tokens) {
+      if (!t) continue;
+      if (firstSegment.includes(t)) return series;
+    }
+  }
+  return undefined;
+}
+/**
  * Search Gunpla image filenames by keywords and return full CDN URLs
  */
-export function searchGunplaImagesByKeywords(keywords: string[]): string[] {
-  const lowerKeywords = keywords.map(k => k.toLowerCase());
-  return ALL_GUNPLA_IMAGE_FILENAMES
-    .filter(name => lowerKeywords.length > 0 && lowerKeywords.every(k => name.toLowerCase().includes(k)))
-    .map(name => `https://cdn.gunpladb.net/${name}`);
+export function searchGunplaImagesByKeywords(keywords: string[], grade?: string, series?: string): string[] {
+  const lowerKeywords = keywords.map(k => k.toLowerCase()).filter(Boolean);
+  if (lowerKeywords.length === 0) return [];
+
+  // Simple helper to escape a token for RegExp
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  // Map grade labels to tokens commonly used as filename prefixes. Order matters (longer first).
+  const tokenMap: Record<string, string[]> = {
+    'high grade (hg)': ['hguc', 'hg'],
+    'full mechanics (fm)': ['full-mechanics', 'fullmechanics', 'fm'],
+    'real grade (rg)': ['rg'],
+    'master grade (mg)': ['mg'],
+    'perfect grade (pg)': ['pg'],
+    'mega size (ms)': ['ms'],
+    'super deformed (sd)': ['sd'],
+    'no grade': ['ng'],
+    'other': []
+  };
+
+  const gkey = grade ? grade.toLowerCase() : undefined;
+  const gradeTokens = gkey ? tokenMap[gkey] || [] : [];
+
+  // If a grade is provided and tokens exist, require that the filename begins with that token
+  if (gradeTokens.length > 0) {
+    // Build regex to strip a leading grade token and any separators/digits that follow
+    const tokenPattern = gradeTokens.map(esc).join('|');
+    // match e.g. ^(hguc|hg)(-|_|\s|\d)*  then capture the rest
+    const prefixRegex = new RegExp('^(?:' + tokenPattern + ')(?:[-_\s\d]*)', 'i');
+
+    const matches: string[] = [];
+    for (const fname of ALL_GUNPLA_IMAGE_FILENAMES) {
+      const ln = fname.toLowerCase();
+      const noExt = ln.replace(/\.[^.]+$/, '');
+      if (!prefixRegex.test(noExt)) continue; // only consider filenames that start with the grade token
+      const remainder = noExt.replace(prefixRegex, '');
+      // require all keywords to be present in the remainder
+      if (lowerKeywords.every(k => remainder.includes(k))) {
+        matches.push(fname);
+      }
+    }
+    // If a series is provided, filter matches to that series
+    if (series) {
+      const wanted = series.trim().toLowerCase();
+      const filtered = matches.filter(n => {
+        // prefer tokens near start of filename (safer match)
+        const s = inferSeriesFromFilenamePrefix(n);
+        if (s) return s.toLowerCase() === wanted;
+        // fallback to global inference
+        const s2 = inferSeriesFromFilename(n);
+        return (s2 || '').toLowerCase() === wanted;
+      });
+      return filtered.map(n => `https://cdn.gunpladb.net/${n}`);
+    }
+
+    return matches.map(n => `https://cdn.gunpladb.net/${n}`);
+  }
+
+  // No grade filter (or 'Other'): fall back to previous behavior matching anywhere in filename
+  const results = ALL_GUNPLA_IMAGE_FILENAMES.filter(name =>
+    lowerKeywords.every(k => name.toLowerCase().includes(k))
+  );
+  // If a series was requested, filter by series token
+  if (series) {
+    const want = series.trim().toLowerCase();
+    const filtered = results.filter(n => {
+      const s = inferSeriesFromFilenamePrefix(n);
+      if (s) return s.toLowerCase() === want;
+      const s2 = inferSeriesFromFilename(n);
+      return (s2 || '').toLowerCase() === want;
+    });
+    return filtered.map(name => `https://cdn.gunpladb.net/${name}`);
+  }
+  return results.map(name => `https://cdn.gunpladb.net/${name}`);
 }
 
 import { GunplaDBResponse, GundamGrade } from '@/types/gundam';
@@ -2720,7 +2829,8 @@ export const ALL_GUNPLA_IMAGE_FILENAMES = [
  */
 export async function fetchGundamImages(
   modelName: string,
-  grade?: GundamGrade
+  grade?: GundamGrade,
+  series?: string
 ): Promise<GunplaDBResponse & { imageOptions?: string[] }> {
   try {
     // Clean and normalize the model name
@@ -2730,12 +2840,13 @@ export async function fetchGundamImages(
       .replace(/\s+/g, ' ')
       .trim();
 
-    // Extract keywords (min length = 3)
-    const keywords = cleanName.split(' ').filter(word => word.length > 2);
+  // Extract keywords (min length = 2 to include short model names like 'ZZ')
+  const keywords = cleanName.split(' ').filter(word => word.length > 1);
 
     // Grade → prefixes
     const gradeMap: Record<string, string[]> = {
       'High Grade (HG)': ['HG', 'HGUC', 'HGHGUC'],
+      'Full Mechanics (FM)': ['FM', 'Full-Mechanics', 'FullMechanics'],
       'Real Grade (RG)': ['RG'],
       'Master Grade (MG)': ['MG'],
       'Perfect Grade (PG)': ['PG'],
@@ -2777,11 +2888,29 @@ export async function fetchGundamImages(
     // Deduplicate
     const uniqueUrls = [...new Set(possibleUrls)];
 
-    // Validate URLs (limit 20 checks)
+    // Validate URLs (limit 20 checks) - if series provided, prioritize URLs that contain any
+    // of the series tokens defined in SERIES_TOKEN_MAP for that series. This avoids
+    // accidental cross-matching on short substrings.
     const validUrls: string[] = [];
-    for (const url of uniqueUrls.slice(0, 20)) {
+    const seen = new Set<string>();
+    let prioritized: string[] = uniqueUrls;
+    if (series) {
+      const wantedKey = Object.keys(SERIES_TOKEN_MAP).find(k => k.toLowerCase() === series.trim().toLowerCase());
+      const tokens = wantedKey ? (SERIES_TOKEN_MAP[wantedKey] || []) : [];
+      const normTokens = tokens.map(t => t.toLowerCase()).filter(Boolean);
+      if (normTokens.length > 0) {
+        const withSeries = uniqueUrls.filter(u => normTokens.some(t => u.toLowerCase().includes(t)));
+        const withoutSeries = uniqueUrls.filter(u => !normTokens.some(t => u.toLowerCase().includes(t)));
+        prioritized = [...withSeries, ...withoutSeries];
+      }
+    }
+
+    for (const url of prioritized) {
+      if (seen.has(url)) continue;
+      seen.add(url);
       const isValid = await validateImageUrl(url);
       if (isValid) validUrls.push(url);
+      if (validUrls.length >= 20) break;
     }
 
     if (validUrls.length > 0) {

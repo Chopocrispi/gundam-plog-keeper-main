@@ -4,7 +4,6 @@ export interface GundamModel {
   grade: GundamGrade;
   series: string;
   scale?: string;
-  manufacturer: string;
   releaseDate?: string;
   price?: number;
   buildStatus: BuildStatus;
@@ -22,6 +21,7 @@ export type GundamGrade =
   | 'Real Grade (RG)'
   | 'Master Grade (MG)'
   | 'Perfect Grade (PG)'
+  | 'Full Mechanics (FM)'
   | 'Mega Size (MS)'
   | 'Super Deformed (SD)'
   | 'No Grade'

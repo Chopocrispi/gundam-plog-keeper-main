@@ -24,7 +24,6 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
   const [formData, setFormData] = useState(() => ({
     name: model?.name || '',
     series: model?.series || '',
-    manufacturer: model?.manufacturer || '',
     grade: (model?.grade as GundamGrade) || 'High Grade (HG)',
     buildStatus: (model?.buildStatus as BuildStatus) || 'Unbuilt',
     imageUrl: model?.imageUrl || '',
@@ -34,13 +33,13 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
   const [isSearchingImage, setIsSearchingImage] = useState(false);
   const [imageOptions, setImageOptions] = useState<string[]>([]);
   const [showImageSelector, setShowImageSelector] = useState(false);
+  // series is now free-text; user types it manually
 
   useEffect(() => {
     if (model) {
       setFormData({
         name: model.name || '',
         series: model.series || '',
-        manufacturer: model.manufacturer || '',
         grade: (model.grade as GundamGrade) || 'High Grade (HG)',
         buildStatus: (model.buildStatus as BuildStatus) || 'Unbuilt',
         imageUrl: model.imageUrl || '',
@@ -48,6 +47,8 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
       });
     }
   }, [model]);
+
+  // ...existing code...
 
   const handleManualImageSearch = useCallback(async () => {
     if (!formData.name.trim()) {
@@ -62,7 +63,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
     setIsSearchingImage(true);
     try {
       // Try the existing fetch-based guesser first
-  const result = await fetchGundamImages(formData.name, formData.grade as GundamGrade);
+  const result = await fetchGundamImages(formData.name, formData.grade as GundamGrade, formData.series);
       if (result.success && result.imageUrl) {
         setFormData(prev => ({ ...prev, imageUrl: result.imageUrl! }));
         if (result.imageOptions && result.imageOptions.length > 1) {
@@ -86,9 +87,9 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
         .replace(/\s+/g, ' ')
         .trim()
         .split(' ')
-        .filter(w => w.length > 2);
+        .filter(w => w.length > 1);
 
-      const urls = searchGunplaImagesByKeywords(keywords);
+  const urls = searchGunplaImagesByKeywords(keywords, formData.grade, formData.series);
       if (urls.length > 0) {
         setFormData(prev => ({ ...prev, imageUrl: urls[0] }));
         if (urls.length > 1) {
@@ -124,6 +125,33 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.name]);
 
+  // When grade changes, re-run the image search (debounced). Only trigger if a name exists.
+  useEffect(() => {
+    const name = formData.name.trim();
+    if (!name) return;
+    const handle = setTimeout(() => {
+      // Call the current search function. We intentionally omit it from the deps
+      // to avoid re-running when the search itself updates formData (imageUrl).
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      void handleManualImageSearch();
+    }, 600);
+    return () => clearTimeout(handle);
+  // only re-run when the grade or name change
+  }, [formData.grade, formData.name]);
+
+  // When series changes, re-run the image search (debounced). Only trigger if a name exists.
+  useEffect(() => {
+    const name = formData.name.trim();
+    if (!name) return;
+    const handle = setTimeout(() => {
+      // intentionally omit handleManualImageSearch from deps to avoid loops
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      void handleManualImageSearch();
+    }, 600);
+    return () => clearTimeout(handle);
+  // only re-run when the series or name change
+  }, [formData.series, formData.name]);
+
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!formData.name.trim()) {
@@ -134,7 +162,6 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
     onSubmit({
       name: formData.name,
       series: formData.series,
-      manufacturer: formData.manufacturer,
       grade: formData.grade as GundamGrade,
       buildStatus: formData.buildStatus as BuildStatus,
       imageUrl: formData.imageUrl,
@@ -150,12 +177,8 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
           <Input value={formData.name} onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))} />
         </div>
         <div>
-          <Label>Series</Label>
-          <Input value={formData.series} onChange={e => setFormData(prev => ({ ...prev, series: e.target.value }))} />
-        </div>
-        <div>
-          <Label>Manufacturer</Label>
-          <Input value={formData.manufacturer} onChange={e => setFormData(prev => ({ ...prev, manufacturer: e.target.value }))} />
+            <Label>Series</Label>
+            <Input value={formData.series} onChange={e => setFormData(prev => ({ ...prev, series: e.target.value }))} placeholder="Type series (e.g. UC, SEED, IBO)" />
         </div>
         <div>
           <Label>Grade</Label>
@@ -168,6 +191,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
               <SelectItem value="Real Grade (RG)">Real Grade (RG)</SelectItem>
               <SelectItem value="Master Grade (MG)">Master Grade (MG)</SelectItem>
               <SelectItem value="Perfect Grade (PG)">Perfect Grade (PG)</SelectItem>
+              <SelectItem value="Full Mechanics (FM)">Full Mechanics (FM)</SelectItem>
               <SelectItem value="Super Deformed (SD)">Super Deformed (SD)</SelectItem>
             </SelectContent>
           </Select>

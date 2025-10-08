@@ -41,18 +41,18 @@ export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
   return (
     <Card className="group overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 bg-gradient-to-br from-card to-card/80">
       <CardHeader className="p-0">
-        <div className="aspect-square relative overflow-hidden bg-muted/20">
+        <div className="relative overflow-hidden bg-muted/20 flex items-center justify-center">
           {model.imageUrl ? (
             <img
               src={model.imageUrl}
               alt={model.name}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              className="max-w-full h-auto object-contain block transition-transform duration-300 group-hover:scale-105"
               onError={(e) => {
                 e.currentTarget.src = '/placeholder.svg';
               }}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-muted-foreground bg-gradient-to-br from-muted/20 to-muted/40">
+            <div className="w-full py-8 flex items-center justify-center text-muted-foreground bg-gradient-to-br from-muted/20 to-muted/40">
               <div className="text-center">
                 <div className="text-4xl mb-2">🤖</div>
                 <div className="text-sm">No Image</div>
