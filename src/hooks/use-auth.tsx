@@ -131,7 +131,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = () => {
     // Use Supabase OAuth for Google sign-in if configured
     const provider = 'google';
-    supabase.auth.signInWithOAuth({ provider }).then((res) => {
+    const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+    supabase.auth.signInWithOAuth({ provider, options: { redirectTo } }).then((res) => {
       if (res.error) {
         console.warn('Supabase signInWithOAuth failed', res.error);
         const msg = res.error.message || 'OAuth sign-in failed';
