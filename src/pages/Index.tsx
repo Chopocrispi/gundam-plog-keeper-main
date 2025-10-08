@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import GoogleLoginButton from '@/components/GoogleLoginButton';
 import { useAuth } from '@/hooks/use-auth';
 import supabase from '@/lib/supabase';
+import { estimateCollectionValue } from '@/lib/pricing';
 
 const Index = () => {
   const { toast } = useToast();
@@ -28,6 +29,9 @@ const Index = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingModel, setEditingModel] = useState<GundamModel | undefined>();
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [estimating, setEstimating] = useState(false);
+  const [estimatedTotal, setEstimatedTotal] = useState<number | null>(null);
+  const [estimatedCount, setEstimatedCount] = useState<number>(0);
 
   // Load models from localStorage on component mount
   useEffect(() => {
@@ -277,7 +281,7 @@ const Index = () => {
 
       {/* Filters and Search */}
       <div className="container mx-auto px-4 py-6">
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row gap-4 mb-4 sm:mb-6">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -331,6 +335,39 @@ const Index = () => {
               onClick={() => setViewMode('list')}
             >
               <List className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Value Estimator */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between rounded-lg border p-3 bg-card/60">
+            <div className="text-sm">
+              <div className="font-semibold">Estimated Collection Value</div>
+              <div className="text-muted-foreground">
+                {estimatedTotal != null ? (
+                  <>
+                    ${estimatedTotal} USD
+                    <span className="ml-2">({estimatedCount} kits)</span>
+                  </>
+                ) : (
+                  'Tap estimate to calculate based on typical prices by grade'
+                )}
+              </div>
+            </div>
+            <Button size="sm" disabled={estimating || filteredModels.length === 0}
+              onClick={async () => {
+                try {
+                  setEstimating(true);
+                  const { total, counted } = await estimateCollectionValue(filteredModels);
+                  setEstimatedTotal(total);
+                  setEstimatedCount(counted);
+                } finally {
+                  setEstimating(false);
+                }
+              }}
+            >
+              {estimating ? 'Estimating…' : 'Estimate'}
             </Button>
           </div>
         </div>

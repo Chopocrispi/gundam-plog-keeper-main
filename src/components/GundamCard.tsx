@@ -4,6 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Star, Edit, Trash2, Calendar, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useEffect, useState } from 'react';
+import { getHobbyGundamUSAPrice } from '@/lib/stores/hobbygundamusa';
 
 interface GundamCardProps {
   model: GundamModel;
@@ -20,6 +22,17 @@ const statusColors = {
 };
 
 export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
+  const [storePrice, setStorePrice] = useState<{ price: number; url?: string } | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const p = await getHobbyGundamUSAPrice(model);
+      if (!mounted) return;
+      if (p) setStorePrice({ price: Math.round(p.price), url: p.url });
+    })();
+    return () => { mounted = false; };
+  }, [model.id, model.name, model.grade]);
   const renderStars = () => {
     if (!model.rating) return null;
     
@@ -76,6 +89,11 @@ export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
             <Badge variant="outline" className="text-xs">
               {model.grade}
             </Badge>
+            {storePrice && (
+              <a href={storePrice.url} target="_blank" rel="noreferrer" className="text-xs font-medium text-gundam-red hover:underline">
+                ${storePrice.price.toFixed(2)}
+              </a>
+            )}
             {renderStars()}
           </div>
         </div>
