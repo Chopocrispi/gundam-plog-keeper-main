@@ -62,8 +62,8 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
 
     setIsSearchingImage(true);
     try {
-      // Try the existing fetch-based guesser first
-  const result = await fetchGundamImages(formData.name, formData.grade as GundamGrade, formData.series);
+    // Try the existing fetch-based guesser first (do not include series)
+    const result = await fetchGundamImages(formData.name, formData.grade as GundamGrade);
       if (result.success && result.imageUrl) {
         setFormData(prev => ({ ...prev, imageUrl: result.imageUrl! }));
         if (result.imageOptions && result.imageOptions.length > 1) {
@@ -89,7 +89,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
         .split(' ')
         .filter(w => w.length > 1);
 
-  const urls = searchGunplaImagesByKeywords(keywords, formData.grade, formData.series);
+    const urls = searchGunplaImagesByKeywords(keywords, formData.grade);
       if (urls.length > 0) {
         setFormData(prev => ({ ...prev, imageUrl: urls[0] }));
         if (urls.length > 1) {
@@ -139,18 +139,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
   // only re-run when the grade or name change
   }, [formData.grade, formData.name]);
 
-  // When series changes, re-run the image search (debounced). Only trigger if a name exists.
-  useEffect(() => {
-    const name = formData.name.trim();
-    if (!name) return;
-    const handle = setTimeout(() => {
-      // intentionally omit handleManualImageSearch from deps to avoid loops
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      void handleManualImageSearch();
-    }, 600);
-    return () => clearTimeout(handle);
-  // only re-run when the series or name change
-  }, [formData.series, formData.name]);
+  // Note: series no longer triggers image search; image lookups are based on model name (and grade).
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
