@@ -93,62 +93,77 @@ function extractProductsFromSearch(html: string): Array<{ url: string; priceEur:
   return items;
 }
 
-async function getBlobFromUrl(url: string): Promise<Blob> {
-  const res = await fetch(proxied(url), { mode: 'cors' });
-  if (!res.ok) throw new Error('image fetch failed');
-  return await res.blob();
+function expectedScaleFor(grade?: GundamGrade): string | undefined {
+  switch (grade) {
+    case 'High Grade (HG)':
+    case 'Real Grade (RG)':
+      return '1/144';
+    case 'Master Grade (MG)':
+    case 'Full Mechanics (FM)':
+      return '1/100';
+    case 'Perfect Grade (PG)':
+      return '1/60';
+    default:
+      return undefined;
+  }
 }
 
-async function computeDHashFromBlob(blob: Blob): Promise<bigint> {
-  const bmp = typeof createImageBitmap === 'function' ? await createImageBitmap(blob) : null;
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('no canvas context');
-  const W = 9, H = 8;
-  canvas.width = W; canvas.height = H;
-  if (bmp) {
-    ctx.drawImage(bmp as any, 0, 0, W, H);
-  } else {
-    const url = URL.createObjectURL(blob);
-    try {
-      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const im = new Image();
-        im.onload = () => resolve(im);
-        im.onerror = reject;
-        im.src = url;
-      });
-      ctx.drawImage(img, 0, 0, W, H);
-    } finally {
-      URL.revokeObjectURL(url);
-    }
-  }
-  const data = ctx.getImageData(0, 0, W, H).data;
-  const gray: number[] = [];
-  for (let i = 0; i < data.length; i += 4) {
-    const r = data[i], g = data[i + 1], b = data[i + 2];
-    // Luma approximation
-    gray.push(0.299 * r + 0.587 * g + 0.114 * b);
-  }
-  // dHash: compare adjacent columns (9x8 -> 8x8 differences)
-  let bits = 0n;
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W - 1; x++) {
-      const left = gray[y * W + x];
-      const right = gray[y * W + x + 1];
-      bits = (bits << 1n) | (right > left ? 1n : 0n);
-    }
-  }
-  return bits; // 64-bit hash in BigInt
+function buildNameTokensForMatch(name: string): string[] {
+  let s = name.toLowerCase();
+  // Remove accents
+  s = s.normalize('NFD').replace(/\p{Diacritic}/gu, '');
+  // Keep letters, numbers, and separators -> split
+  const raw = s.replace(/[^a-z0-9]+/g, ' ').trim();
+  const parts = raw.split(/\s+/).filter(t => t.length >= 2);
+  // De-duplicate tokens
+  return Array.from(new Set(parts));
 }
 
-function hammingDistance(a: bigint, b: bigint): number {
-  let x = a ^ b;
-  let count = 0;
-  while (x) { count += Number(x & 1n); x >>= 1n; }
-  return count;
+function scoreProductCandidate(p: { url: string; priceEur: number; title?: string }, opts: { gradeAbbr?: string; scale?: string; nameTokens: string[] }): number {
+  const title = (p.title || '').toLowerCase();
+  const urlPath = p.url.toLowerCase();
+  const { gradeAbbr, scale, nameTokens } = opts;
+
+  // Hard negative keywords common for accessories/promos
+  const negatives = [
+    'carta', 'promocional', 'promo', 'sticker', 'pegatina', 'soporte', 'base', 'stand', 'display',
+    'decal', 'calcomania', 'calcomanias', 'decals', 'efecto', 'effect', 'weapons', 'weapon',
+    'pieza', 'piezas', 'repuesto', 'part', 'parts', 'option', 'opcionales', 'gift card', 'tarjeta', 'entrada', 'ticket'
+  ];
+  for (const n of negatives) {
+    if (title.includes(n)) return -1000; // reject
+  }
+
+  let score = 0;
+  if (gradeAbbr) {
+    const re = new RegExp(`(^|[^a-z0-9])${gradeAbbr.toLowerCase()}([^a-z0-9]|$)`);
+    if (re.test(title) || urlPath.includes(`/${gradeAbbr.toLowerCase()}-`)) score += 50;
+  }
+  if (scale) {
+    const s1 = scale.replace('/', '\\/');
+    const re = new RegExp(`(\\b|^)${s1}(\\b|$)`);
+    if (re.test(title) || urlPath.includes(scale.replace('/', '-'))) score += 25;
+  }
+  // Name tokens presence
+  let tokenHits = 0;
+  for (const t of nameTokens) {
+    if (t.length <= 2) continue;
+    if (title.includes(t)) tokenHits++;
+  }
+  score += tokenHits * 15;
+
+  if (title.includes('gundam')) score += 10;
+  if (/bandai|gunpla/.test(title)) score += 8;
+
+  // Mild price bias (avoid ultra-low prices which are filtered anyway)
+  if (p.priceEur > 10) score += 5;
+  if (p.priceEur > 25) score += 5;
+  if (p.priceEur > 40) score += 5;
+
+  return score;
 }
 
-async function findFirstProductUrl(query: string, refImageUrl?: string): Promise<string | null> {
+async function findFirstProductUrl(query: string, grade?: GundamGrade, modelName?: string): Promise<string | null> {
   // Try common search patterns (including WooCommerce search with post_type=product)
   const candidates = [
     // Prioritize WooCommerce-native product search
@@ -167,41 +182,14 @@ async function findFirstProductUrl(query: string, refImageUrl?: string): Promise
       if (products.length) {
         // Filter out very cheap items (e.g., promo cards at 0,75€). Keep items strictly over 2€
         const filtered = products.filter(p => p.priceEur > 2);
-        // If we have a reference image, try to choose the visual closest match among filtered
-        if (refImageUrl && filtered.length) {
-          try {
-            // Cache reference image hash in localStorage
-            const refKey = `imgHash:${refImageUrl}`;
-            let refHashStr = localStorage.getItem(refKey);
-            let refHash: bigint | null = null;
-            if (!refHashStr) {
-              const refBlob = await getBlobFromUrl(refImageUrl);
-              refHash = await computeDHashFromBlob(refBlob);
-              refHashStr = refHash.toString();
-              try { localStorage.setItem(refKey, refHashStr); } catch {}
-            } else {
-              refHash = BigInt(refHashStr);
-            }
-            if (refHash != null) {
-              let best: { url: string; dist: number } | null = null;
-              const limit = filtered.slice(0, 8); // limit work
-              for (const p of limit) {
-                if (!p.img) continue;
-                try {
-                  const blob = await getBlobFromUrl(p.img);
-                  const h = await computeDHashFromBlob(blob);
-                  const d = hammingDistance(refHash, h);
-                  if (!best || d < best.dist) best = { url: p.url, dist: d };
-                } catch { /* ignore individual failures */ }
-              }
-              if (best) return best.url;
-            }
-          } catch { /* fall back to price-based */ }
-        }
-        const chosen = (filtered.length ? filtered : products)
-          // Prefer higher price among candidates to bias towards full kits
-          .sort((a, b) => b.priceEur - a.priceEur)[0];
-        if (chosen?.url) return chosen.url;
+        const abbr = gradeAbbr(grade);
+        const scale = expectedScaleFor(grade);
+        const tokens = buildNameTokensForMatch(modelName || '');
+        const scored = (filtered.length ? filtered : products)
+          .map(p => ({ p, score: scoreProductCandidate(p, { gradeAbbr: abbr, scale, nameTokens: tokens }) }))
+          .sort((a, b) => b.score - a.score || b.p.priceEur - a.p.priceEur);
+        const top = scored[0];
+        if (top && top.score > -1000) return top.p.url;
       }
       // Fallback: look for the first product-like link if no items parsed
       const m = html.match(/href=["']((?:https?:\/\/(?:www\.)?geosanbattle\.com)?\/(?:products?|product|producto)\/[A-Za-z0-9\-_%]+\/?)["']/i);
@@ -241,7 +229,7 @@ export async function getGeosanBattlePriceUSD(model: GundamModel): Promise<{ pri
   const queries = buildSearchQueries(name, model.grade as GundamGrade);
   let productUrl: string | null = null;
   for (const q of queries) {
-    productUrl = await findFirstProductUrl(q, model.imageUrl);
+    productUrl = await findFirstProductUrl(q, model.grade as GundamGrade, name);
     if (productUrl) break;
   }
   if (!productUrl) return null;
