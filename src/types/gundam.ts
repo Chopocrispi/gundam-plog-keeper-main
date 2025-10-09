@@ -39,3 +39,18 @@ export interface GunplaDBResponse {
   imageUrl?: string;
   error?: string;
 }
+
+// Store offer types (for showing prices inside a kit entry)
+export interface Offer {
+  store: string; // short store name, e.g., "HobbyGundamUSA"
+  title: string; // product title at the store
+  url: string; // product URL
+  price: number; // numeric price
+  currency: string; // e.g., "USD", "EUR"
+  availability?: 'in_stock' | 'out_of_stock' | 'unknown';
+}
+
+export interface OffersIndex {
+  // key is a normalized query like "hg gundam aerial"
+  [normalizedQuery: string]: Offer[];
+}

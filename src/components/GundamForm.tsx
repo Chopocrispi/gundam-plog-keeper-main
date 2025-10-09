@@ -12,6 +12,7 @@ import { Star, Search, Loader2, Grid } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ImageSelector } from '@/components/ImageSelector';
+import OffersPanel from '@/components/OffersPanel';
 
 type Props = {
   model?: GundamModel | null;
@@ -187,6 +188,9 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
   <Label>{t('form.notes')}</Label>
         <Textarea value={formData.notes} onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))} />
       </div>
+
+  {/* Store prices panel (sample data via /offers.sample.json; replace with real API later) */}
+  <OffersPanel name={formData.name} grade={formData.grade as GundamGrade} />
 
       <div>
   <Label>{t('form.image')}</Label>
