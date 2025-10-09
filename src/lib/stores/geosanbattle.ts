@@ -25,8 +25,22 @@ function gradeAbbr(g?: GundamGrade) {
   }
 }
 
+// Basic stopwords to reduce noise in store search queries
+const QUERY_STOPWORDS = new Set([
+  'gundam', 'mobile', 'suit', 'ver', 'version', 'clear', 'color', 'colors', 'the', 'of', 'from', 'and'
+]);
+
 function normalizeName(raw: string): string {
-  return raw.replace(/\b1\s*\/\s*(144|100|60)\b/gi, '').replace(/\b(HG|RG|MG|PG|FM|SD)\b/gi, '').replace(/\s{2,}/g, ' ').trim();
+  // remove scales and grade abbreviations
+  let s = raw
+    .replace(/\b1\s*\/\s*(144|100|60)\b/gi, '')
+    .replace(/\b(HG|RG|MG|PG|FM|SD)\b/gi, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  // strip simple stopwords
+  const parts = s.split(/\s+/).map(p => p.toLowerCase());
+  const kept = parts.filter(p => p && !QUERY_STOPWORDS.has(p));
+  return kept.length ? kept.join(' ') : s;
 }
 
 function buildQueries(name: string, grade?: GundamGrade) {

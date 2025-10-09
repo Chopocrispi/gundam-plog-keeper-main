@@ -39,10 +39,37 @@ export function inferSeriesFromFilenamePrefix(filename: string): string | undefi
   return undefined;
 }
 /**
+ * Common stopwords/noise to ignore when matching against image filenames
+ * These are too generic and appear in many filenames, hurting precision.
+ */
+const FILENAME_STOPWORDS = new Set([
+  'gundam', 'mobile', 'suit', 'ver', 'version', 'clear', 'color', 'colors',
+  'limited', 'exclusive', 'set', 'effect', 'unit', 'option', 'options', 'parts', 'part',
+  'weapon', 'weapons', 'pack', 'the', 'of', 'from', 'and', 'model', 'mecha',
+  // series and grade tokens that are often prefixes elsewhere in the match
+  'hg', 'rg', 'mg', 'pg', 'fm', 'sd', 'uc', 'ibo', 'seed', '00', 'wing', 'age', 'reconguista',
+  'witch', 'mercury', '08th', 'team', 'build', 'divers', 'rerise',
+  // common MS/model code prefixes that are too broad by themselves
+  'rx', 'ms', 'zgmf', 'xxxg', 'oz', 'gn', 'xv', 'msn', 'rms', 'rgm', 'amx', 'pmx', 'stts'
+]);
+
+function stripStopwords(words: string[]): string[] {
+  const out: string[] = [];
+  for (const w of words) {
+    const t = w.trim();
+    if (!t) continue;
+    if (FILENAME_STOPWORDS.has(t)) continue;
+    if (t.length <= 1) continue;
+    if (!out.includes(t)) out.push(t);
+  }
+  return out;
+}
+
+/**
  * Search Gunpla image filenames by keywords and return full CDN URLs
  */
 export function searchGunplaImagesByKeywords(keywords: string[], grade?: string, series?: string): string[] {
-  const lowerKeywords = keywords.map(k => k.toLowerCase()).filter(Boolean);
+  const lowerKeywords = stripStopwords(keywords.map(k => k.toLowerCase()).filter(Boolean));
   if (lowerKeywords.length === 0) return [];
 
   // Simple helper to escape a token for RegExp
@@ -77,7 +104,7 @@ export function searchGunplaImagesByKeywords(keywords: string[], grade?: string,
       const noExt = ln.replace(/\.[^.]+$/, '');
       if (!prefixRegex.test(noExt)) continue; // only consider filenames that start with the grade token
       const remainder = noExt.replace(prefixRegex, '');
-      // require all keywords to be present in the remainder
+      // require all keywords (after stopword filtering) to be present in the remainder
       if (lowerKeywords.every(k => remainder.includes(k))) {
         matches.push(fname);
       }
@@ -2840,8 +2867,8 @@ export async function fetchGundamImages(
       .replace(/\s+/g, ' ')
       .trim();
 
-  // Extract keywords (min length = 2 to include short model names like 'ZZ')
-  const keywords = cleanName.split(' ').filter(word => word.length > 1);
+  // Extract keywords (min length = 2 to include short model names like 'ZZ'), minus stopwords
+  const keywords = stripStopwords(cleanName.split(' ').filter(word => word.length > 1));
 
     // Grade → prefixes
     const gradeMap: Record<string, string[]> = {
