@@ -127,6 +127,24 @@ async function tokensFromImage(imageUrl?: string): Promise<string[]> {
   return fromFilename;
 }
 
+function filenameFromUrl(imageUrl?: string): string | '' {
+  if (!imageUrl) return '';
+  try {
+    const u = new URL(imageUrl);
+    return u.pathname.split('/').pop() || '';
+  } catch {
+    return imageUrl.split('/').pop() || '';
+  }
+}
+
+function kitNameFromImage(imageUrl?: string): string | undefined {
+  const filename = filenameFromUrl(imageUrl);
+  if (!filename) return undefined;
+  const human = (GUNPLA_IMAGE_FILENAMES as Record<string, string>)[filename]
+    || (GUNPLA_IMAGE_FILENAMES as Record<string, string>)[decodeURIComponent(filename)];
+  return human || undefined;
+}
+
 function pickByTokens(idx: OffersIndex, tokens: string[]): Offer[] {
   if (!tokens.length) return [];
   const results: Offer[] = [];
@@ -156,15 +174,16 @@ export async function findOffersForModel(name: string, grade?: GundamGrade, opts
   const imgTokens = await tokensFromImage(opts?.imageUrl || '');
   const extra = (opts?.extraTerms || []).concat(imgTokens);
   const extraStr = extra.join(' ');
-  const q = normalize(`${gradeAbbr(grade)} ${name}`.trim());
+  const effectiveName = kitNameFromImage(opts?.imageUrl) || name;
+  const q = normalize(`${gradeAbbr(grade)} ${effectiveName}`.trim());
   // eslint-disable-next-line no-console
-  console.log('[offers] query:', q);
+  console.log('[offers] query:', q, { effectiveName, providedName: name });
   // direct key match first
   let offers = idx[q];
   if (!offers || offers.length === 0) {
     // Try with extra terms from image/name tokens
-    const combo1 = normalize(`${gradeAbbr(grade)} ${name} ${extraStr}`.trim());
-    const combo2 = normalize(`${name} ${extraStr}`.trim());
+    const combo1 = normalize(`${gradeAbbr(grade)} ${effectiveName} ${extraStr}`.trim());
+    const combo2 = normalize(`${effectiveName} ${extraStr}`.trim());
     const tokens1 = tokenize(combo1);
     const tokens2 = tokenize(combo2);
     // eslint-disable-next-line no-console
@@ -176,7 +195,7 @@ export async function findOffersForModel(name: string, grade?: GundamGrade, opts
   // If still nothing from static index, try live endpoint
   if (!offers || offers.length === 0) {
     try {
-      const live = await fetchLiveOffers(name, grade);
+      const live = await fetchLiveOffers(effectiveName, grade);
       if (live.length > 0) {
         offers = live;
       }
