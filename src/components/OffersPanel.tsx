@@ -39,6 +39,8 @@ export function OffersPanel({ name, grade, imageUrl }: OffersPanelProps) {
       const res = await findOffersForModel(name, grade, { imageUrl });
       if (cancelled) return;
       setOffers(res);
+      // eslint-disable-next-line no-console
+      console.log('[OffersPanel] offers result', { count: res.length, sample: res[0] });
       setLoading(false);
     })();
     return () => { cancelled = true; };
