@@ -8,10 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Star, Search, Loader2, Grid } from 'lucide-react';
+import { Star, Search, Loader2, Grid, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ImageSelector } from '@/components/ImageSelector';
+import { estimateModelPrice, type PriceQuote } from '@/lib/pricing';
 
 type Props = {
   model?: GundamModel | null;
@@ -36,6 +37,10 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
   const [imageOptions, setImageOptions] = useState<string[]>([]);
   const [showImageSelector, setShowImageSelector] = useState(false);
   const latestSearchRef = useRef(0);
+  const latestPriceReqRef = useRef(0);
+  const [priceQuotes, setPriceQuotes] = useState<PriceQuote[] | null>(null);
+  const [avgPrice, setAvgPrice] = useState<number | null>(null);
+  const [loadingPrices, setLoadingPrices] = useState(false);
   // series is now free-text; user types it manually
 
   useEffect(() => {
@@ -52,6 +57,36 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
   }, [model]);
 
   // ...existing code...
+
+  const fetchPrices = useCallback(async () => {
+    const myReq = ++latestPriceReqRef.current;
+    const name = formData.name.trim();
+    if (!name) { setPriceQuotes(null); setAvgPrice(null); return; }
+    setLoadingPrices(true);
+    try {
+      const tempModel: GundamModel = {
+        id: 'temp',
+        name,
+        grade: formData.grade as GundamGrade,
+        series: formData.series,
+        buildStatus: formData.buildStatus as BuildStatus,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        imageUrl: formData.imageUrl || undefined,
+      } as unknown as GundamModel;
+      const res = await estimateModelPrice(tempModel);
+      if (myReq !== latestPriceReqRef.current) return;
+      setPriceQuotes(res?.quotes ?? null);
+      setAvgPrice(res?.average ?? null);
+    } catch (e) {
+      console.warn('price fetch failed', e);
+      if (myReq !== latestPriceReqRef.current) return;
+      setPriceQuotes(null);
+      setAvgPrice(null);
+    } finally {
+      if (myReq === latestPriceReqRef.current) setLoadingPrices(false);
+    }
+  }, [formData]);
 
   const handleManualImageSearch = useCallback(async () => {
     const mySearchId = ++latestSearchRef.current;
@@ -119,6 +154,14 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.name, formData.grade]);
 
+  // Debounce: trigger price scan when name or grade change
+  useEffect(() => {
+    const name = formData.name.trim();
+    if (!name) { setPriceQuotes(null); setAvgPrice(null); return; }
+    const h = setTimeout(() => { void fetchPrices(); }, 700);
+    return () => clearTimeout(h);
+  }, [formData.name, formData.grade, fetchPrices]);
+
   // Note: series no longer triggers image search; image lookups are based on model name (and grade).
 
   const handleSubmit = (e?: React.FormEvent) => {
@@ -166,6 +209,45 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
           </Select>
         </div>
       </div>
+
+      {/* Store Prices */}
+      <Card>
+        <CardHeader className="py-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Store Prices</CardTitle>
+            <Button variant="outline" type="button" size="sm" onClick={() => void fetchPrices()} disabled={loadingPrices || !formData.name.trim()}>
+              <RefreshCw className={cn("h-4 w-4 mr-1", loadingPrices && 'animate-spin')} />
+              Refresh
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {loadingPrices ? (
+            <div className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Scanning stores…</div>
+          ) : priceQuotes && priceQuotes.length > 0 ? (
+            <div className="space-y-1">
+              {priceQuotes.map((q) => (
+                <div key={q.store} className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">{q.store}</span>
+                  {q.url ? (
+                    <a href={q.url} target="_blank" rel="noopener noreferrer" className="font-medium text-gundam-red hover:underline">
+                      ${q.price.toFixed(2)}
+                    </a>
+                  ) : (
+                    <span className="font-medium">${q.price.toFixed(2)}</span>
+                  )}
+                </div>
+              ))}
+              <div className="pt-1 text-right text-sm">
+                <span className="text-muted-foreground mr-2">Average:</span>
+                {avgPrice != null ? <span className="font-semibold">${avgPrice.toFixed(2)}</span> : <span className="text-muted-foreground">—</span>}
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">No prices yet.</div>
+          )}
+        </CardContent>
+      </Card>
 
       <div>
   <Label>{t('form.buildStatus')}</Label>

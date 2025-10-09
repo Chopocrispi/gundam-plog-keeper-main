@@ -27,9 +27,16 @@ export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const est = await estimateModelPrice(model);
-      if (!mounted) return;
-      setAvgPrice(est?.average ?? null);
+      try {
+        const est = await estimateModelPrice(model);
+        if (!mounted) return;
+        setAvgPrice(est?.average ?? null);
+      } catch (err) {
+        // Silently ignore provider errors; keep card rendering
+        if (!mounted) return;
+        setAvgPrice(null);
+        console.warn('estimateModelPrice failed', err);
+      }
     })();
     return () => { mounted = false; };
   }, [model.id, model.name, model.grade]);
