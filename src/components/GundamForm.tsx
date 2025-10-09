@@ -8,11 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Star, Search, Loader2, Grid, RefreshCw } from 'lucide-react';
+import { Loader2, Grid } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ImageSelector } from '@/components/ImageSelector';
-import { estimateModelPrice, type PriceQuote } from '@/lib/pricing';
+// pricing removed
 
 type Props = {
   model?: GundamModel | null;
@@ -39,35 +39,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
   const latestSearchRef = useRef(0);
   // series is now free-text; user types it manually
 
-  // Pricing state (do not affect image search)
-  const [priceQuotes, setPriceQuotes] = useState<PriceQuote[] | null>(null);
-  const [avgPrice, setAvgPrice] = useState<number | null>(null);
-  const [isFetchingPrices, setIsFetchingPrices] = useState(false);
-
-  const fetchPrices = useCallback(async (force = false) => {
-    if (!formData.name.trim()) return;
-    setIsFetchingPrices(true);
-    try {
-      const fakeModel = {
-        id: model?.id || 'temp',
-        name: formData.name,
-        grade: formData.grade,
-        series: formData.series,
-        buildStatus: formData.buildStatus,
-        createdAt: '',
-        updatedAt: '',
-      } as const satisfies Pick<GundamModel, 'id' | 'name' | 'grade' | 'series' | 'buildStatus' | 'createdAt' | 'updatedAt'>;
-      const result = await estimateModelPrice(fakeModel as unknown as GundamModel, { force });
-      if (result) {
-        setPriceQuotes(result.quotes);
-        setAvgPrice(result.average);
-      }
-    } catch (e) {
-      console.error('pricing error', e);
-    } finally {
-      setIsFetchingPrices(false);
-    }
-  }, [formData, model?.id]);
+  // pricing removed
 
   useEffect(() => {
     if (model) {
@@ -145,8 +117,6 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
     if (!name) return;
     const handle = setTimeout(() => {
       void handleManualImageSearch();
-      // Fire pricing in background (not forced)
-      void fetchPrices(false);
     }, 600);
     return () => clearTimeout(handle);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -244,39 +214,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
         )}
       </div>
 
-      {/* Store Prices Panel */}
-      <div className="border rounded-md p-3 sm:p-4">
-        <div className="flex items-center justify-between mb-2">
-          <div className="font-medium">Store Prices</div>
-          <Button type="button" variant="outline" size="sm" onClick={() => fetchPrices(true)} disabled={isFetchingPrices}>
-            <RefreshCw className={cn('h-4 w-4 mr-2', { 'animate-spin': isFetchingPrices })} />
-            Refresh
-          </Button>
-        </div>
-        {isFetchingPrices && (
-          <div className="text-sm text-muted-foreground">Fetching prices…</div>
-        )}
-        {!isFetchingPrices && (!priceQuotes || priceQuotes.length === 0) && (
-          <div className="text-sm text-muted-foreground">No prices yet.</div>
-        )}
-        {!isFetchingPrices && priceQuotes && priceQuotes.length > 0 && (
-          <div className="space-y-1">
-            {priceQuotes.map((q) => (
-              <div key={q.store} className="text-sm flex items-center gap-2">
-                <span className="w-40 shrink-0">{q.store}</span>
-                <span className="font-medium">${q.price.toFixed(2)} USD</span>
-                {q.url && (
-                  <a href={q.url} target="_blank" rel="noreferrer" className="text-primary underline">Open</a>
-                )}
-              </div>
-            ))}
-            <div className="pt-2 text-sm">
-              <span className="opacity-70 mr-2">Average:</span>
-              <span className="font-semibold">{avgPrice != null ? `$${avgPrice.toFixed(2)} USD` : '-'}</span>
-            </div>
-          </div>
-        )}
-      </div>
+      {/* Store Prices Panel removed */}
 
       <div className="flex gap-2 justify-end">
   <Button variant="outline" type="button" onClick={onCancel}>{t('form.cancel')}</Button>

@@ -3,9 +3,9 @@ import { GundamModel } from '@/types/gundam';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Star, Edit, Trash2, Calendar, DollarSign, Loader2 } from 'lucide-react';
+import { Star, Edit, Trash2, Calendar, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { estimateModelPrice } from '@/lib/pricing';
+// pricing removed
 
 interface GundamCardProps {
   model: GundamModel;
@@ -22,26 +22,7 @@ const statusColors = {
 };
 
 export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
-  const [avgPrice, setAvgPrice] = useState<number | null>(null);
-  const [loadingAvg, setLoadingAvg] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    // If explicit price exists, skip fetching average
-    if (!model?.name || model.price != null) return;
-    (async () => {
-      try {
-        setLoadingAvg(true);
-        const result = await estimateModelPrice(model);
-        if (!cancelled) setAvgPrice(result?.average ?? null);
-      } catch {
-        if (!cancelled) setAvgPrice(null);
-      } finally {
-        if (!cancelled) setLoadingAvg(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [model]);
+  // pricing removed
   const renderStars = () => {
     if (!model.rating) return null;
     
@@ -111,21 +92,7 @@ export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
                 <span>${model.price}</span>
               </div>
             )}
-            {!model.price && (
-              <div className="flex items-center gap-1">
-                {loadingAvg ? (
-                  <>
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span>Avg…</span>
-                  </>
-                ) : avgPrice != null ? (
-                  <>
-                    <DollarSign className="h-3 w-3" />
-                    <span>Avg ${avgPrice.toFixed(2)}</span>
-                  </>
-                ) : null}
-              </div>
-            )}
+            {/* average price preview removed */}
             {model.completionDate && (
               <div className="flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
