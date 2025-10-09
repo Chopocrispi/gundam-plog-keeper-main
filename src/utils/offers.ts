@@ -1,4 +1,5 @@
 import type { Offer, OffersIndex, GundamGrade } from '@/types/gundam';
+import { GUNPLA_IMAGE_FILENAMES } from '@/utils/gunpladb';
 
 // Lightweight client-side offers lookup that reads a static JSON index from /public
 // Later this can be swapped for a real API that serves fresh scraped prices.
@@ -103,16 +104,27 @@ function tokenize(s: string): string[] {
   return out;
 }
 
-function tokensFromImageUrl(imageUrl?: string): string[] {
+async function tokensFromImage(imageUrl?: string): Promise<string[]> {
   if (!imageUrl) return [];
+  let filename = '';
   try {
     const u = new URL(imageUrl);
-    const base = u.pathname.split('/').pop() || '';
-    const namePart = base.replace(/\.[^.]+$/, '');
-    return tokenize(namePart);
+    filename = u.pathname.split('/').pop() || '';
   } catch {
-    return tokenize(imageUrl);
+    filename = imageUrl.split('/').pop() || imageUrl;
   }
+  const base = filename.replace(/\.[^.]+$/, '');
+  const fromFilename = tokenize(base);
+  // Augment tokens with the human-friendly kit name from the static map
+  const human = (GUNPLA_IMAGE_FILENAMES as Record<string, string>)[filename]
+    || (GUNPLA_IMAGE_FILENAMES as Record<string, string>)[decodeURIComponent(filename)]
+    || '';
+  if (human) {
+    const nameTokens = tokenize(human);
+    const uniq = new Set<string>([...fromFilename, ...nameTokens]);
+    return Array.from(uniq);
+  }
+  return fromFilename;
 }
 
 function pickByTokens(idx: OffersIndex, tokens: string[]): Offer[] {
@@ -141,7 +153,8 @@ function pickByTokens(idx: OffersIndex, tokens: string[]): Offer[] {
 
 export async function findOffersForModel(name: string, grade?: GundamGrade, opts?: { extraTerms?: string[]; imageUrl?: string }): Promise<Offer[]> {
   const idx = await loadOffersIndex();
-  const extra = (opts?.extraTerms || []).concat(tokensFromImageUrl(opts?.imageUrl || ''));
+  const imgTokens = await tokensFromImage(opts?.imageUrl || '');
+  const extra = (opts?.extraTerms || []).concat(imgTokens);
   const extraStr = extra.join(' ');
   const q = normalize(`${gradeAbbr(grade)} ${name}`.trim());
   // eslint-disable-next-line no-console
