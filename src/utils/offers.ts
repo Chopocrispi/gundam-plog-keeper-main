@@ -63,16 +63,36 @@ export async function loadOffersIndex(): Promise<OffersIndex> {
 
 const STOP = new Set([
   'hg','rg','mg','pg','fm','sd','ms',
+  'hguc','hghguc',
   'high','real','master','perfect','full','mechanics','mega','size','super','deformed','grade',
   'gundam','mobile','suit','model','kit'
 ]);
 
 function tokenize(s: string): string[] {
-  const withSpaces = s.replace(/([a-z])([A-Z])/g, '$1 $2');
-  return normalize(withSpaces)
+  // split camelCase and letter-digit boundaries, underscores, and multiple hyphens
+  const withSpaces = s
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/([A-Za-z])(\d)/g, '$1 $2')
+    .replace(/(\d)([A-Za-z])/g, '$1 $2')
+    .replace(/[._]+/g, ' ')
+    .replace(/-+/g, ' ');
+  const raw = normalize(withSpaces)
     .split(' ')
-    .filter(Boolean)
-    .filter(t => !STOP.has(t) && t.length > 1);
+    .filter(Boolean);
+  const filtered = raw.filter(t => {
+    if (STOP.has(t)) return false;
+    if (t.length <= 1) return false;
+    // drop pure numbers (like 097)
+    if (/^\d+$/.test(t)) return false;
+    return true;
+  });
+  // unique preserve order
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const t of filtered) {
+    if (!seen.has(t)) { seen.add(t); out.push(t); }
+  }
+  return out;
 }
 
 function tokensFromImageUrl(imageUrl?: string): string[] {
@@ -93,8 +113,12 @@ function pickByTokens(idx: OffersIndex, tokens: string[]): Offer[] {
   const seen = new Set<string>();
   for (const [key, offers] of Object.entries(idx)) {
     const k = normalize(key);
-    const ok = tokens.every(t => k.includes(t));
-    if (ok) {
+    let matched = 0;
+    for (const t of tokens) {
+      if (k.includes(t)) matched++;
+    }
+    const needed = Math.min(3, tokens.length);
+    if (matched >= needed) {
       for (const o of offers) {
         const sig = `${o.store}|${o.url}`;
         if (!seen.has(sig)) {
