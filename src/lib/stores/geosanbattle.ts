@@ -89,6 +89,51 @@ function parseEuro(html: string): number | null {
   return Number.isFinite(num) ? num : null;
 }
 
+// Try to read price from JSON-LD Product/Offer blocks
+function extractPriceEURFromJsonLD(html: string): number | null {
+  const re = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const block = m[1].trim();
+    try {
+      const data = JSON.parse(block);
+      // normalize into array for iteration
+      const arr = Array.isArray(data) ? data : [data];
+      for (const d of arr) {
+        // Look for Product with offers
+        const offers = d?.offers || d?.Offer || d?.offers?.[0];
+        if (offers) {
+          const price = offers.price || (Array.isArray(offers) ? offers[0]?.price : undefined);
+          const currency = offers.priceCurrency || (Array.isArray(offers) ? offers[0]?.priceCurrency : undefined);
+          const p = typeof price === 'string' ? parseFloat(price) : Number(price);
+          if (Number.isFinite(p) && (!currency || /eur/i.test(String(currency)))) {
+            return p;
+          }
+        }
+        if (d?.price) {
+          const p2 = typeof d.price === 'string' ? parseFloat(d.price) : Number(d.price);
+          if (Number.isFinite(p2)) return p2;
+        }
+      }
+    } catch {}
+  }
+  return null;
+}
+
+// Try to read price from WooCommerce summary price area
+function extractPriceEURFromSummary(html: string): number | null {
+  const sum = html.match(/<div[^>]*class=["'][^"']*summary[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
+  const block = sum?.[1];
+  if (!block) return null;
+  const priceBlock = block.match(/<p[^>]*class=["'][^"']*price[^"']*["'][^>]*>([\s\S]*?)<\/p>/i)?.[1] || block;
+  // Prefer sale price inside <ins> if present
+  const ins = priceBlock.match(/<ins[^>]*>([\s\S]*?)<\/ins>/i)?.[1] || priceBlock;
+  // Find woocommerce-Price-amount
+  const span = ins.match(/<span[^>]*class=["'][^"']*woocommerce-Price-amount[^"']*["'][^>]*>([\s\S]*?)<\/span>/i)?.[1] || ins;
+  const eur = parseEuro(span);
+  return eur;
+}
+
 type PickOpts = { gradeAbbr?: string; scale?: string; tokens?: string[] };
 
 async function searchAndPickProductUrl(query: string, opts?: PickOpts): Promise<string | null> {
@@ -204,7 +249,11 @@ export async function getGeosanBattlePriceUSD(
     const res = await fetch(proxied(url), { mode: 'cors' });
     if (!res.ok) return null;
     const html = await res.text();
-    const eur = parseEuro(html);
+    // Prefer structured data or summary price over first € on page
+    let eur = extractPriceEURFromJsonLD(html);
+    if (eur == null) eur = extractPriceEURFromSummary(html);
+    if (eur == null) eur = parseEuro(html);
+    if (DEBUG) console.debug('[Geosan] parsed prices', { jsonLD: extractPriceEURFromJsonLD(html), summary: extractPriceEURFromSummary(html), fallback: parseEuro(html), chosen: eur });
     if (eur == null) return null;
     const usd = Math.round((eur * EUR_USD) * 100) / 100;
     try { localStorage.setItem(cacheKey, JSON.stringify({ price: usd, ts: Date.now(), url })); } catch {}
