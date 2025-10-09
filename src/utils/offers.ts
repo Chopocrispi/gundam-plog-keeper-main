@@ -27,33 +27,41 @@ function gradeAbbr(grade?: GundamGrade) {
 }
 
 export async function loadOffersIndex(): Promise<OffersIndex> {
-  if (cache) return cache;
+  // If we already have a non-empty cache, use it
+  if (cache && Object.keys(cache).length > 0) return cache;
   try {
     // Respect Vite base path (works for dev, preview, and subpath deployments)
-    const base = (import.meta as any)?.env?.BASE_URL || '/';
-  const makePath = (name: string) => base.endsWith('/') ? `${base}${name}` : `${base}/${name}`;
-  const buster = `t=${Date.now()}`;
-  const primary = `${makePath('offers.json')}?${buster}`;
-  const fallback = `${makePath('offers.sample.json')}?${buster}`;
-    // eslint-disable-next-line no-console
-    console.log('[offers] fetching index from', primary, 'or', fallback);
-    let res: Response;
-    try {
-      res = await fetch(primary, { cache: 'no-store' });
-    } catch (e) {
-      console.warn('[offers] primary fetch failed, trying fallback', e);
-      res = await fetch(fallback, { cache: 'no-store' });
+    const base = import.meta.env?.BASE_URL || '/';
+    const makePath = (name: string) => base.endsWith('/') ? `${base}${name}` : `${base}/${name}`;
+    const ts = `t=${Date.now()}`;
+    const relPrimary = `${makePath('offers.json')}?${ts}`;
+    const relFallback = `${makePath('offers.sample.json')}?${ts}`;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const absPrimary = origin ? `${origin}${relPrimary.startsWith('/') ? '' : '/'}${relPrimary}` : relPrimary;
+    const absFallback = origin ? `${origin}${relFallback.startsWith('/') ? '' : '/'}${relFallback}` : relFallback;
+
+    const candidates = [relPrimary, relFallback, absPrimary, absFallback, '/offers.json?' + ts, '/offers.sample.json?' + ts];
+    console.log('[offers] index candidates:', candidates);
+    let lastErr: unknown = null;
+    for (const url of candidates) {
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) {
+          console.warn('[offers] fetch not ok:', url, res.status, res.statusText);
+          continue;
+        }
+        const data = (await res.json()) as OffersIndex;
+        cache = data || {};
+        console.log('[offers] index loaded from', url, 'keys:', Object.keys(cache).length);
+        return cache;
+      } catch (err) {
+        lastErr = err;
+        console.warn('[offers] fetch failed for', url, err);
+      }
     }
-    if (!res.ok) {
-      // eslint-disable-next-line no-console
-      console.error('[offers] failed to load index:', res.status, res.statusText);
-    }
-    if (!res.ok) throw new Error(`Offers index fetch failed: ${res.status}`);
-    const data = (await res.json()) as OffersIndex;
-    cache = data;
-  // eslint-disable-next-line no-console
-  console.log('[offers] index loaded with keys:', Object.keys(data).length);
-    return data;
+    console.error('[offers] all index candidates failed', lastErr);
+    cache = {};
+    return cache;
   } catch (e) {
     console.warn('Failed to load offers index', e);
     cache = {};
