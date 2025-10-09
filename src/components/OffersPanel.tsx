@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { GundamGrade, Offer } from '@/types/gundam';
-import { findOffersForModel } from '@/utils/offers';
+import { findOffersForModel, loadOffersIndex } from '@/utils/offers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ExternalLink, ShoppingCart } from 'lucide-react';
@@ -15,11 +15,24 @@ export function OffersPanel({ name, grade }: OffersPanelProps) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // Warm the offers index so we can see the network request even before typing
+    (async () => {
+      try {
+        const idx = await loadOffersIndex();
+        // eslint-disable-next-line no-console
+        console.log('[OffersPanel] index warmed; keys:', Object.keys(idx).length);
+      } catch {}
+    })();
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     if (!name.trim()) {
       setOffers(null);
       return;
     }
+  // eslint-disable-next-line no-console
+  console.log('[OffersPanel] lookup for name/grade', { name, grade });
     setLoading(true);
     (async () => {
       const res = await findOffersForModel(name, grade);
@@ -41,7 +54,9 @@ export function OffersPanel({ name, grade }: OffersPanelProps) {
       <CardContent className="pt-0">
         {loading && <div className="text-sm text-muted-foreground">Looking up sample offers…</div>}
         {!loading && (!offers || offers.length === 0) && (
-          <div className="text-sm text-muted-foreground">No offers found.</div>
+          <div className="text-sm text-muted-foreground">
+            No offers found. Try a common name and grade, e.g. "Gundam Aerial" with grade "High Grade (HG)" for the sample data.
+          </div>
         )}
         {!loading && offers && offers.length > 0 && (
           <ul className="divide-y divide-border">

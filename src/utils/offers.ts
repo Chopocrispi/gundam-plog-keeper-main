@@ -29,10 +29,18 @@ function gradeAbbr(grade?: GundamGrade) {
 export async function loadOffersIndex(): Promise<OffersIndex> {
   if (cache) return cache;
   try {
-    const res = await fetch('/offers.sample.json', { cache: 'no-store' });
+    // Respect Vite base path (works for dev, preview, and subpath deployments)
+    const base = (import.meta as any)?.env?.BASE_URL || '/';
+    const path = base.endsWith('/') ? `${base}offers.sample.json` : `${base}/offers.sample.json`;
+    // Debug: surface fetch attempt once (non-spammy because we cache)
+  // eslint-disable-next-line no-console
+  console.log('[offers] fetching index from', path);
+    const res = await fetch(path, { cache: 'no-store' });
     if (!res.ok) throw new Error(`Offers index fetch failed: ${res.status}`);
     const data = (await res.json()) as OffersIndex;
     cache = data;
+  // eslint-disable-next-line no-console
+  console.log('[offers] index loaded with keys:', Object.keys(data).length);
     return data;
   } catch (e) {
     console.warn('Failed to load offers index', e);
@@ -44,11 +52,16 @@ export async function loadOffersIndex(): Promise<OffersIndex> {
 export async function findOffersForModel(name: string, grade?: GundamGrade): Promise<Offer[]> {
   const idx = await loadOffersIndex();
   const q = normalize(`${gradeAbbr(grade)} ${name}`.trim());
+  // eslint-disable-next-line no-console
+  console.log('[offers] query:', q);
   // direct key match first
   let offers = idx[q];
   if (!offers) {
     // fallback: try without grade abbreviation
-    offers = idx[normalize(name)] || [];
+    const fallback = normalize(name);
+  // eslint-disable-next-line no-console
+  console.log('[offers] fallback query:', fallback);
+    offers = idx[fallback] || [];
   }
 
   // dedupe by store hostname and sort by price asc
