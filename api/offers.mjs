@@ -38,6 +38,12 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_M
 function normalize(s) {
   return (s || '')
     .toLowerCase()
+    // normalize greek letters often used in kit names
+    .replace(/[νν]/g, 'nu')
+    .replace(/[α]/g, 'alpha')
+    .replace(/[β]/g, 'beta')
+    .replace(/[γ]/g, 'gamma')
+    // strip punctuation
     .replace(/[^a-z0-9\s-]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
