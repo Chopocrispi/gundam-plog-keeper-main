@@ -1,23 +1,37 @@
 // Serverless endpoint to fetch live offers from multiple stores.
-// Works on platforms like Vercel as /api/offers.
+// Designed to be portable across hosts (Vercel/Netlify/etc.) by avoiding Node-only
+// imports at module load. Uses dynamic imports and global fetch when available.
 
-import cheerio from 'cheerio';
-import nf from 'node-fetch';
-const _fetch = (typeof fetch !== 'undefined') ? fetch : nf;
+// Lazy-load cheerio only when needed; return null if unavailable in the runtime.
+let _cheerio = null;
+async function getCheerio() {
+  if (_cheerio) return _cheerio;
+  try {
+    const mod = await import('cheerio');
+    _cheerio = mod.default || mod;
+    return _cheerio;
+  } catch {
+    return null; // HTML parsing won't be available; non-Shopify scrapes will be skipped
+  }
+}
 
-// Ensure Node.js runtime on platforms like Vercel, not Edge (cheerio/node-fetch need Node APIs)
-export const config = { runtime: 'nodejs' };
+function getFetch() {
+  if (typeof fetch !== 'undefined') return fetch;
+  throw new Error('fetch_not_available: Host must provide global fetch (Node 18+ or Edge runtime).');
+}
 
 const DEFAULT_TIMEOUT_MS = 10000; // 10s per upstream request
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
+  const F = getFetch();
+  const canAbort = typeof AbortController !== 'undefined';
+  const controller = canAbort ? new AbortController() : null;
+  const id = canAbort ? setTimeout(() => controller.abort(), timeoutMs) : null;
   try {
-    const res = await _fetch(url, { ...options, signal: controller.signal });
+    const res = await F(url, { ...options, signal: controller?.signal });
     return res;
   } finally {
-    clearTimeout(id);
+    if (id) clearTimeout(id);
   }
 }
 
@@ -118,6 +132,8 @@ async function shopify(domain, query, source) {
 
 async function htmlJsonLd(url, source, currencyGuess = 'USD') {
   try {
+    const cheerio = await getCheerio();
+    if (!cheerio) return [];
     const html = await fetchText(url);
     const $ = cheerio.load(html);
     const scripts = $('script[type="application/ld+json"]').map((_, el) => $(el).text()).get();
@@ -150,6 +166,8 @@ function makeAbsolutizer(base) {
 }
 async function findProductLinks(searchUrl, linkPredicate, absolutize) {
   try {
+    const cheerio = await getCheerio();
+    if (!cheerio) return [];
     const html = await fetchText(searchUrl);
     const $ = cheerio.load(html);
     const all = $('a[href]').map((_, el) => ({ href: $(el).attr('href'), text: $(el).text() })).get();
