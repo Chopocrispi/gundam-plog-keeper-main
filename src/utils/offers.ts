@@ -31,11 +31,15 @@ export async function loadOffersIndex(): Promise<OffersIndex> {
   try {
     // Respect Vite base path (works for dev, preview, and subpath deployments)
     const base = (import.meta as any)?.env?.BASE_URL || '/';
-    const path = base.endsWith('/') ? `${base}offers.sample.json` : `${base}/offers.sample.json`;
-    // Debug: surface fetch attempt once (non-spammy because we cache)
-  // eslint-disable-next-line no-console
-  console.log('[offers] fetching index from', path);
-    const res = await fetch(path, { cache: 'no-store' });
+    const makePath = (name: string) => base.endsWith('/') ? `${base}${name}` : `${base}/${name}`;
+    const primary = makePath('offers.json');
+    const fallback = makePath('offers.sample.json');
+    // eslint-disable-next-line no-console
+    console.log('[offers] fetching index from', primary, 'or', fallback);
+    let res = await fetch(primary, { cache: 'no-store' });
+    if (!res.ok) {
+      res = await fetch(fallback, { cache: 'no-store' });
+    }
     if (!res.ok) throw new Error(`Offers index fetch failed: ${res.status}`);
     const data = (await res.json()) as OffersIndex;
     cache = data;

@@ -1,13 +1,24 @@
 import json
-import re
 import scrapy
 from urllib.parse import urlencode
 from dataclasses import asdict
 from gunpla_prices.items import OfferItem
 from gunpla_prices.utils import tokenize
 
-class HgusaSpider(scrapy.Spider):
-    name = "hgusa"
+
+class ShopifySuggestSpider(scrapy.Spider):
+    """
+    Generic Shopify spider using /search/suggest.json and /products/{handle}.js
+    Subclasses must define:
+      - domain: e.g. "newtype.us"
+      - source_name: e.g. "Newtype"
+    Optional:
+      - custom_settings
+    """
+
+    domain: str = ""
+    source_name: str = ""
+
     custom_settings = {"ROBOTSTXT_OBEY": True, "DOWNLOAD_DELAY": 0.8}
 
     def add_arguments(self, parser):
@@ -17,10 +28,12 @@ class HgusaSpider(scrapy.Spider):
         parser.add_argument("-a", dest="scale", help="scale e.g. 1/144", default="")
 
     def start_requests(self):
-        q = (self.query or "").strip()
+        if not self.domain:
+            raise scrapy.exceptions.CloseSpider("Missing domain for Shopify spider")
+        q = (getattr(self, "query", "") or "").strip()
         if not q:
             raise scrapy.exceptions.CloseSpider("Missing -a query=...")
-        base = "https://hobbygundamusa.com/search/suggest.json"
+        base = f"https://{self.domain}/search/suggest.json"
         params = {"q": q, "resources[type]": "product", "resources[limit]": 15}
         url = f"{base}?{urlencode(params)}"
         yield scrapy.Request(url, callback=self.parse_suggest)
@@ -31,26 +44,25 @@ class HgusaSpider(scrapy.Spider):
         except Exception:
             data = {}
         products = (data.get("resources", {}).get("results", {}).get("products", []) or [])
-        toks = tokenize(self.query, getattr(self, "grade", None), getattr(self, "model_code", None), getattr(self, "scale", None))
+        toks = tokenize(getattr(self, "query", ""), getattr(self, "grade", None), getattr(self, "model_code", None), getattr(self, "scale", None))
         for p in products:
             title = p.get("title") or "Product"
-            handle = p.get("handle") or (p.get("url", "").split("/products/")[1] if "/products/" in (p.get("url") or "") else None)
+            url = p.get("url") or ""
+            handle = p.get("handle") or (url.split("/products/")[1] if "/products/" in url else None)
             if not handle:
                 continue
             score = 0
-            nt = title.lower()
+            nt = (title or "").lower()
             for t in toks:
                 if t and t in nt:
                     score += 1
-            # fetch product json for price
-            prod_js = f"https://hobbygundamusa.com/products/{handle}.js"
+            prod_js = f"https://{self.domain}/products/{handle}.js"
             meta = {"score": score, "title": title, "handle": handle}
             yield scrapy.Request(prod_js, callback=self.parse_product, meta=meta)
 
     def parse_product(self, resp):
-        title = resp.meta.get("title")
+        title = resp.meta.get("title") or "Product"
         handle = resp.meta.get("handle")
-        score = resp.meta.get("score", 0)
         price = None
         try:
             pj = json.loads(resp.text)
@@ -61,10 +73,10 @@ class HgusaSpider(scrapy.Spider):
             pass
         item = OfferItem(
             title=title,
-            url=f"https://hobbygundamusa.com/products/{handle}",
+            url=f"https://{self.domain}/products/{handle}",
             price=price,
             currency="USD",
-            source="HobbyGundamUSA",
+            source=self.source_name or self.domain,
             handle=handle,
             query=getattr(self, "query", None),
             grade=getattr(self, "grade", None),
