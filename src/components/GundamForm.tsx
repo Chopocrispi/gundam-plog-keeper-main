@@ -79,15 +79,21 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
       }
 
       // Fallback: search the local filename list by keywords
-      const keywords = formData.name
+      // Remove grade and generic tokens so we don't over-constrain the match
+      const stop = new Set([
+        'hg','rg','mg','pg','fm','sd','ms',
+        'high','real','master','perfect','full','mechanics','mega','size','super','deformed','grade',
+        'gundam','mobile','suit'
+      ]);
+      const rawTokens = formData.name
         .toLowerCase()
         .replace(/[^\w\s-]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim()
-        .split(' ')
-        .filter(w => w.length > 1);
+        .split(' ');
+      const keywords = rawTokens.filter(w => w.length > 1 && !stop.has(w));
 
-    const urls = searchGunplaImagesByKeywords(keywords, formData.grade);
+  const urls = searchGunplaImagesByKeywords(keywords, formData.grade);
       if (mySearchId !== latestSearchRef.current) return; // stale
       if (urls.length > 0) {
         setFormData(prev => ({ ...prev, imageUrl: urls[0] }));
@@ -190,7 +196,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
       </div>
 
   {/* Store prices panel (sample data via /offers.sample.json; replace with real API later) */}
-  <OffersPanel name={formData.name} grade={formData.grade as GundamGrade} />
+  <OffersPanel name={formData.name} grade={formData.grade as GundamGrade} imageUrl={formData.imageUrl} />
 
       <div>
   <Label>{t('form.image')}</Label>
