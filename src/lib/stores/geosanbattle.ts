@@ -89,7 +89,7 @@ function parseEuro(html: string): number | null {
   return Number.isFinite(num) ? num : null;
 }
 
-// Try to read price from JSON-LD Product/Offer blocks
+// Try to read price from JSON-LD Product/Offer blocks damn
 function extractPriceEURFromJsonLD(html: string): number | null {
   const re = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   let m: RegExpExecArray | null;
