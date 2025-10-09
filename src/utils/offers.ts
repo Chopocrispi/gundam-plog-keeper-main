@@ -148,13 +148,6 @@ export async function findOffersForModel(name: string, grade?: GundamGrade, opts
   console.log('[offers] query:', q);
   // direct key match first
   let offers = idx[q];
-  if (!offers) {
-    // fallback: try without grade abbreviation
-    const fallback = normalize(name);
-  // eslint-disable-next-line no-console
-  console.log('[offers] fallback query:', fallback);
-    offers = idx[fallback] || [];
-  }
   if (!offers || offers.length === 0) {
     // Try with extra terms from image/name tokens
     const combo1 = normalize(`${gradeAbbr(grade)} ${name} ${extraStr}`.trim());

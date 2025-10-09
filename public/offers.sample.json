@@ -26,39 +26,5 @@
       "currency": "USD",
       "availability": "in_stock"
     }
-  ],
-  "hg rgm-89 jegan": [
-    {
-      "store": "Newtype",
-      "title": "HG RGM-89 Jegan",
-      "url": "https://newtype.us/products/hg-rgm-89-jegan",
-      "price": 21.99,
-      "currency": "USD",
-      "availability": "in_stock"
-    },
-    {
-      "store": "USA Gundam Store",
-      "title": "HG RGM-89 Jegan",
-      "url": "https://usagundamstore.com/products/hg-rgm-89-jegan",
-      "price": 19.99,
-      "currency": "USD",
-      "availability": "in_stock"
-    },
-    {
-      "store": "Gundam Planet",
-      "title": "HG RGM-89 Jegan",
-      "url": "https://gundamplanet.com/hg-rgm-89-jegan.html",
-      "price": 23.49,
-      "currency": "USD",
-      "availability": "out_of_stock"
-    },
-    {
-      "store": "HLJ",
-      "title": "HG RGM-89 Jegan",
-      "url": "https://www.hlj.com/hg-rgm-89-jegan/",
-      "price": 1800,
-      "currency": "JPY",
-      "availability": "unknown"
-    }
   ]
 }
