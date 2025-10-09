@@ -188,18 +188,20 @@ export function searchGunplaImagesByKeywords(keywords: string[], grade?: string,
   // If a grade is provided and tokens exist, require that the filename begins with that token
   if (gradeTokens.length > 0) {
     // Build regex to strip a leading grade token and any separators/digits that follow
-    const tokenPattern = gradeTokens.map(esc).join('|');
-    // match e.g. ^(hguc|hg)(-|_|\s|\d)*  then capture the rest
-    const prefixRegex = new RegExp('^(?:' + tokenPattern + ')(?:[-_\s\d]*)', 'i');
+  const tokenPattern = gradeTokens.map(esc).join('|');
+  // match grade at the very start, and strip only immediate separators (not letters) after it
+  const prefixRegex = new RegExp('^(?:' + tokenPattern + ')(?:[-_\s]*)', 'i');
 
     const matches: string[] = [];
     for (const fname of ALL_GUNPLA_IMAGE_FILENAMES) {
       const ln = fname.toLowerCase();
       const noExt = ln.replace(/\.[^.]+$/, '');
       if (!prefixRegex.test(noExt)) continue; // only consider filenames that start with the grade token
+      // Strip the grade and immediate separators for keyword checks
       const remainder = noExt.replace(prefixRegex, '');
-      // require all keywords (after stopword filtering) to be present in the remainder
-      if (lowerKeywords.every(k => remainder.includes(k))) {
+      const hay = remainder || noExt;
+      // require all keywords (after stopword filtering) to be present
+      if (lowerKeywords.every(k => hay.includes(k))) {
         matches.push(fname);
       }
     }
@@ -2966,10 +2968,12 @@ export async function fetchGundamImages(
 
     // NEW: quick local filename pass using our index, rank, and return if we have solid matches
     const localCandidates = searchGunplaImagesByKeywords(keywords, grade, series)
-      .map(u => u.replace('https://cdn.gunpladb.net/', ''));
+      .map(u => u.replace('https://cdn.gunpladb.net/', ''))
+      .filter(Boolean);
     if (localCandidates.length > 0) {
-  const rankedLocal = rankImageNamesWithQuery(localCandidates, keywords, series).map(n => `https://cdn.gunpladb.net/${n}`);
-      return { success: true, imageUrl: rankedLocal[0], imageOptions: rankedLocal.slice(0, 20) };
+      const rankedLocal = rankImageNamesWithQuery(localCandidates, keywords, series).map(n => `https://cdn.gunpladb.net/${n}`);
+      const uniqueRanked = [...new Set(rankedLocal)];
+      return { success: true, imageUrl: uniqueRanked[0], imageOptions: uniqueRanked.slice(0, 20) };
     }
 
     // Grade → prefixes

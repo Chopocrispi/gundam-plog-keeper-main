@@ -109,6 +109,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
         } else {
           // no toast
         }
+        if (mySearchId === latestSearchRef.current) setIsSearchingImage(false);
         return;
       }
 
@@ -132,6 +133,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
         } else {
           // no toast
         }
+        if (mySearchId === latestSearchRef.current) setIsSearchingImage(false);
       } else {
         // no toast on not found
       }
