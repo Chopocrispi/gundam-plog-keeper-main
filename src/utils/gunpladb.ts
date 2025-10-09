@@ -53,6 +53,17 @@ const FILENAME_STOPWORDS = new Set([
   'rx', 'ms', 'zgmf', 'xxxg', 'oz', 'gn', 'xv', 'msn', 'rms', 'rgm', 'amx', 'pmx', 'stts'
 ]);
 
+// Series-specific MS code prefixes to help rank images even when users type only the name
+const SERIES_CODE_HINTS: Record<string, string[]> = {
+  'universal century': ['rx', 'ms'],
+  'seed': ['zgmf', 'gatx', 'zgmfx'],
+  'iron blooded orphans': ['asw'],
+  '00': ['gn'],
+  'wing': ['xxxg', 'oz'],
+  'age': ['age'],
+  'witch from mercury': ['xvx', 'stts'],
+};
+
 function stripStopwords(words: string[]): string[] {
   const out: string[] = [];
   for (const w of words) {
@@ -72,6 +83,8 @@ function scoreImageName(name: string): number {
   // Prefer images that look like primary kit images
   if (/^hg|^rg|^mg|^pg|^fm|^sd/i.test(n)) score += 10;
   if (/[-_]rx|[-_]zgmf|[-_]xxxg|[-_]gn|[-_]amx|[-_]msn|[-_]stts/i.test(n)) score += 3;
+  // Extra boost for explicit MS code + digits (e.g., GN001, RX-78, ZGMF-X10A)
+  if (/(^|[-_\s])(rx|gn|zgmf|xxxg|gatx|oz|amx|msn|stts|xvx)[-_\s]?\d{1,4}/i.test(n)) score += 6;
   // Penalize special variants and accessory/option sets
   if (isVariantName(n)) score -= 200; // heavy penalty; still kept if no alternatives
   if (/限定|exclusive|limited/i.test(n)) score -= 10;
@@ -90,6 +103,50 @@ function rankImageNames(names: string[]): string[] {
   const nonVar = arr.filter(x => !x.v).sort((a, b) => b.s - a.s).map(x => x.n);
   const vars = arr.filter(x => x.v).sort((a, b) => b.s - a.s).map(x => x.n);
   return nonVar.length ? [...nonVar, ...vars] : [...vars];
+}
+
+function rankImageNamesWithQuery(names: string[], queryTokens: string[], series?: string): string[] {
+  const q = queryTokens.map(t => t.toLowerCase()).filter(Boolean);
+  const seriesKey = (series || '').trim().toLowerCase();
+  const hintTokens = SERIES_CODE_HINTS[seriesKey] || [];
+  const inferredCodes = inferMsCodesFromIndex(q);
+  const arr = [...names].map(n => {
+    const base = scoreImageName(n);
+    const lower = n.toLowerCase();
+    let bonus = 0;
+    for (const t of [...q, ...hintTokens, ...inferredCodes]) {
+      if (!t) continue;
+      if (lower.includes(t)) bonus += 6; // direct token boost (e.g., 'exia')
+      // tiny extra if appears as a separate segment boundary
+      if (new RegExp(`(^|[-_\s])${t}($|[-_\s])`, 'i').test(lower)) bonus += 2;
+    }
+    const v = isVariantName(lower);
+    return { n, s: base + bonus, v };
+  });
+  const nonVar = arr.filter(x => !x.v).sort((a, b) => b.s - a.s).map(x => x.n);
+  const vars = arr.filter(x => x.v).sort((a, b) => b.s - a.s).map(x => x.n);
+  return nonVar.length ? [...nonVar, ...vars] : [...vars];
+}
+
+// Infer likely MS code tokens (e.g., GN001, RX-78) from our filename index for the given query tokens
+function inferMsCodesFromIndex(queryTokens: string[], max = 3): string[] {
+  const q = queryTokens.map(t => t.toLowerCase()).filter(Boolean);
+  if (!q.length) return [];
+  const codeCount = new Map<string, number>();
+  const codeRe = /\b(rx[-_\s]?\d{2}|rx[-_\s]?\d{2}[a-z]?|gn[-_\s]?\d{3}|zgmf[-_\s]?[a-z]?\d{2,4}[a-z]?|xxxg[-_\s]?\d{2,4}|gatx[-_\s]?\d{2,4}|oz[-_\s]?\d{2,4}|amx[-_\s]?\d{2,4}|msn[-_\s]?\d{2,4}|stts[-_\s]?\d{3}|xvx[-_\s]?\d{3})\b/i;
+  for (const fname of ALL_GUNPLA_IMAGE_FILENAMES) {
+    const ln = fname.toLowerCase();
+    // quick check: ensure all query tokens appear (loosely) in the filename
+    if (!q.every(t => ln.includes(t))) continue;
+    const m = ln.match(codeRe);
+    if (!m) continue;
+    const code = m[0].replace(/\s+/g, '').replace(/_/g, '').replace(/-/g, '').toLowerCase();
+    codeCount.set(code, (codeCount.get(code) || 0) + 1);
+  }
+  return [...codeCount.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, max)
+    .map(([c]) => c);
 }
 
 function rankUrls(urls: string[]): string[] {
@@ -157,10 +214,10 @@ export function searchGunplaImagesByKeywords(keywords: string[], grade?: string,
         const s2 = inferSeriesFromFilename(n);
         return (s2 || '').toLowerCase() === wanted;
       });
-      return rankImageNames(filtered).map(n => `https://cdn.gunpladb.net/${n}`);
+      return rankImageNamesWithQuery(filtered, lowerKeywords, series).map(n => `https://cdn.gunpladb.net/${n}`);
     }
 
-    return rankImageNames(matches).map(n => `https://cdn.gunpladb.net/${n}`);
+    return rankImageNamesWithQuery(matches, lowerKeywords, series).map(n => `https://cdn.gunpladb.net/${n}`);
   }
 
   // No grade filter (or 'Other'): fall back to previous behavior matching anywhere in filename
@@ -176,9 +233,9 @@ export function searchGunplaImagesByKeywords(keywords: string[], grade?: string,
       const s2 = inferSeriesFromFilename(n);
       return (s2 || '').toLowerCase() === want;
     });
-    return rankImageNames(filtered).map(name => `https://cdn.gunpladb.net/${name}`);
+    return rankImageNamesWithQuery(filtered, lowerKeywords, series).map(name => `https://cdn.gunpladb.net/${name}`);
   }
-  return rankImageNames(results).map(name => `https://cdn.gunpladb.net/${name}`);
+  return rankImageNamesWithQuery(results, lowerKeywords, series).map(name => `https://cdn.gunpladb.net/${name}`);
 }
 
 import { GunplaDBResponse, GundamGrade } from '@/types/gundam';
@@ -2911,7 +2968,7 @@ export async function fetchGundamImages(
     const localCandidates = searchGunplaImagesByKeywords(keywords, grade, series)
       .map(u => u.replace('https://cdn.gunpladb.net/', ''));
     if (localCandidates.length > 0) {
-      const rankedLocal = rankImageNames(localCandidates).map(n => `https://cdn.gunpladb.net/${n}`);
+  const rankedLocal = rankImageNamesWithQuery(localCandidates, keywords, series).map(n => `https://cdn.gunpladb.net/${n}`);
       return { success: true, imageUrl: rankedLocal[0], imageOptions: rankedLocal.slice(0, 20) };
     }
 
