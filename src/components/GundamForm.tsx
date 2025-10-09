@@ -44,6 +44,36 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
   const [offers, setOffers] = useState<MerchantOffer[] | null>(null);
   const [isSearchingOffers, setIsSearchingOffers] = useState(false);
   const [alsoSearchOffers, setAlsoSearchOffers] = useState(false);
+  // Reusable identify flow (free OCR first, then optional server fallback)
+  const detectFromImage = useCallback(async (imageUrl: string) => {
+    if (!imageUrl) return;
+    setIsSearchingImage(true);
+    try {
+      let res = await identifyFromImageFree(imageUrl);
+      if (!res?.name && !res?.grade) {
+        try { res = await identifyFromImage(imageUrl); } catch {}
+      }
+      setFormData(prev => ({
+        ...prev,
+        name: res.name || prev.name,
+        grade: (res.grade as GundamGrade) || prev.grade,
+      }));
+      if (alsoSearchOffers) {
+        setIsSearchingOffers(true);
+        try {
+          const list = await searchOffersForImage(imageUrl);
+          setOffers(list);
+        } finally {
+          setIsSearchingOffers(false);
+        }
+      }
+    } catch (e) {
+      console.error('Vision identify error', e);
+    } finally {
+      setIsSearchingImage(false);
+    }
+  }, [alsoSearchOffers]);
+
 
   useEffect(() => {
     if (model) {
@@ -206,36 +236,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
             variant="outline"
             className="h-9 sm:h-10"
             disabled={!formData.imageUrl || isSearchingImage}
-            onClick={async () => {
-              if (!formData.imageUrl) return;
-              setIsSearchingImage(true);
-              try {
-                // Try free OCR first; if it yields nothing useful, try server endpoint
-                let res = await identifyFromImageFree(formData.imageUrl);
-                if (!res?.name && !res?.grade) {
-                  try { res = await identifyFromImage(formData.imageUrl); } catch {}
-                }
-                setFormData(prev => ({
-                  ...prev,
-                  name: res.name || prev.name,
-                  grade: (res.grade as GundamGrade) || prev.grade,
-                }));
-                if (alsoSearchOffers) {
-                  setIsSearchingOffers(true);
-                  try {
-                    // Offers: we still call server (can be mocked), or skip if you want fully free
-                    const list = await searchOffersForImage(formData.imageUrl);
-                    setOffers(list);
-                  } finally {
-                    setIsSearchingOffers(false);
-                  }
-                }
-              } catch (e) {
-                console.error('Vision identify error', e);
-              } finally {
-                setIsSearchingImage(false);
-              }
-            }}
+            onClick={async () => { if (formData.imageUrl) await detectFromImage(formData.imageUrl); }}
           >
             {isSearchingImage ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ScanEye className="h-4 w-4 mr-2" />}
             Detect kit from image
@@ -259,7 +260,11 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
             <ImageSelector
               imageOptions={imageOptions}
               selectedImage={formData.imageUrl}
-              onImageSelect={url => setFormData(prev => ({ ...prev, imageUrl: url }))}
+              onImageSelect={async url => {
+                setFormData(prev => ({ ...prev, imageUrl: url }));
+                // Automatically run detection when a user picks an image
+                await detectFromImage(url);
+              }}
               onClose={() => { setShowImageSelector(false); setImageOptions([]); }}
             />
           </div>
