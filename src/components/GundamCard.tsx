@@ -10,7 +10,7 @@ interface GundamCardProps {
   onEdit: (model: GundamModel) => void;
   onDelete: (id: string) => void;
 }
-
+//kill me
 const statusColors = {
   'Unbuilt': 'bg-muted text-muted-foreground',
   'In Progress': 'bg-warning text-warning-foreground',
