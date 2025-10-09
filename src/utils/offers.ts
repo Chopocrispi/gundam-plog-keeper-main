@@ -167,6 +167,18 @@ export async function findOffersForModel(name: string, grade?: GundamGrade, opts
     offers = byTokens;
   }
 
+  // If still nothing from static index, try live endpoint
+  if (!offers || offers.length === 0) {
+    try {
+      const live = await fetchLiveOffers(name, grade);
+      if (live.length > 0) {
+        offers = live;
+      }
+    } catch (e) {
+      console.warn('[offers] live fetch failed', e);
+    }
+  }
+
   // dedupe by store hostname and sort by price asc
   const seen = new Map<string, Offer>();
   for (const o of offers) {
@@ -182,4 +194,41 @@ export async function findOffersForModel(name: string, grade?: GundamGrade, opts
     }
   }
   return Array.from(seen.values()).sort((a, b) => a.price - b.price);
+}
+
+async function fetchLiveOffers(name: string, grade?: GundamGrade): Promise<Offer[]> {
+  const base = import.meta.env?.BASE_URL || '/';
+  const qs = new URLSearchParams({ query: name, grade: grade || '' }).toString();
+  // Prefer same-origin /api path
+  const urls = [
+    `${base.endsWith('/') ? base.slice(0, -1) : base}/api/offers?${qs}`,
+    `/api/offers?${qs}`,
+  ];
+  for (const u of urls) {
+    try {
+      console.log('[offers] live fetch', u);
+      const res = await fetch(u, { cache: 'no-store' });
+      if (!res.ok) {
+        console.warn('[offers] live fetch not ok', res.status, res.statusText);
+        continue;
+      }
+      const data = await res.json();
+      const arr = Array.isArray(data) ? data : (data.offers || []);
+      const out: Offer[] = arr
+        .filter((o: any) => o && typeof o.url === 'string')
+        .map((o: any) => ({
+          store: String(o.store || o.source || 'Store'),
+          title: String(o.title || 'Product'),
+          url: String(o.url),
+          price: typeof o.price === 'number' ? o.price : Number(o.price),
+          currency: String(o.currency || 'USD'),
+          availability: o.availability || undefined,
+        }))
+        .filter(o => !Number.isNaN(o.price));
+      if (out.length > 0) return out;
+    } catch (e) {
+      console.warn('[offers] live fetch error', e);
+    }
+  }
+  return [];
 }
