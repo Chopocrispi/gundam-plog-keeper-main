@@ -9,7 +9,7 @@ function proxied(url: string) {
 }
 
 function keyFor(model: GundamModel) {
-  return `store:hgusa:v1:${(model.name || '').toLowerCase()}|${model.grade || ''}`;
+  return `store:hgusa:v2:${(model.name || '').toLowerCase()}|${model.grade || ''}`;
 }
 
 // Known exact overrides to ensure perfect matches for common kits

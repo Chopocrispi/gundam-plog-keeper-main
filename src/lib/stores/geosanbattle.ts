@@ -10,7 +10,7 @@ function proxied(url: string) {
 }
 
 function keyFor(model: GundamModel) {
-  return `store:geosan:v2:${(model.name || '').toLowerCase()}|${model.grade || ''}`;
+  return `store:geosan:v3:${(model.name || '').toLowerCase()}|${model.grade || ''}`;
 }
 
 // Known URL overrides for exact matches
@@ -115,6 +115,8 @@ async function searchAndPickProductUrl(query: string, opts?: PickOpts): Promise<
         // ignore accessories <= 2€
         if (eur <= 2) continue;
         const title = block.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i)?.[1]?.replace(/<[^>]+>/g, '').trim();
+        // ignore raffles or baskets
+        if (/rifa|cesta|sorteo|raffle|basket/i.test(title || '')) continue;
         items.push({ url, price: eur, title });
       }
       allItems.push(...items);
@@ -168,8 +170,25 @@ export async function getGeosanBattlePriceUSD(model: GundamModel): Promise<{ pri
   const override = URL_OVERRIDES.find(o => o.test.test(`${(gradeAbbr(grade) || '')} ${name}`));
   if (override) url = override.url;
   for (const q of queries) {
-    url = await searchAndPickProductUrl(q, { gradeAbbr: gradeAbbr(grade), scale: scaleForGrade(grade), tokens });
-    if (url) break;
+    const picked = await searchAndPickProductUrl(q, { gradeAbbr: gradeAbbr(grade), scale: scaleForGrade(grade), tokens });
+    if (!picked) continue;
+    // Guard against mismatched grade in the title
+    try {
+      const res = await fetch(proxied(picked), { mode: 'cors' });
+      if (!res.ok) continue;
+      const html = await res.text();
+      const title = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1]?.replace(/<[^>]+>/g, '').toLowerCase() || '';
+      const ab = (gradeAbbr(grade) || '').toLowerCase();
+      if (ab && !new RegExp(`(^|[^a-z0-9])${ab}([^a-z0-9]|$)`, 'i').test(title)) {
+        // wrong grade (e.g., PG shown when asking for HG)
+        continue;
+      }
+      url = picked;
+      break;
+    } catch {
+      url = picked;
+      break;
+    }
   }
   if (!url) return null;
   try {
