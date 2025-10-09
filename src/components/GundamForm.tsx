@@ -8,11 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Grid } from 'lucide-react';
+import { Loader2, Grid, RefreshCw, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ImageSelector } from '@/components/ImageSelector';
-// pricing removed
+import { searchOffersByImage, type Offer } from '@/lib/merchantSearch';
 
 type Props = {
   model?: GundamModel | null;
@@ -39,7 +39,25 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
   const latestSearchRef = useRef(0);
   // series is now free-text; user types it manually
 
-  // pricing removed
+  // Image-based merchant offers
+  const [offers, setOffers] = useState<Offer[] | null>(null);
+  const [avgOffersUSD, setAvgOffersUSD] = useState<number | null>(null);
+  const [offersLoading, setOffersLoading] = useState(false);
+  const fetchOffers = useCallback(async () => {
+    if (!formData.imageUrl) return;
+    setOffersLoading(true);
+    try {
+      const { offers, averageUSD } = await searchOffersByImage(formData.imageUrl);
+      setOffers(offers);
+      setAvgOffersUSD(averageUSD);
+    } catch (e) {
+      console.error('visual search offers error', e);
+      setOffers(null);
+      setAvgOffersUSD(null);
+    } finally {
+      setOffersLoading(false);
+    }
+  }, [formData.imageUrl]);
 
   useEffect(() => {
     if (model) {
@@ -214,7 +232,42 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
         )}
       </div>
 
-      {/* Store Prices Panel removed */}
+      {/* Image-based Offers (Bing Visual Search) */}
+      <div className="border rounded-md p-3 sm:p-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="font-medium">Image-based Offers</div>
+          <Button type="button" variant="outline" size="sm" onClick={() => fetchOffers()} disabled={!formData.imageUrl || offersLoading}>
+            <RefreshCw className={cn('h-4 w-4 mr-2', { 'animate-spin': offersLoading })} />
+            Refresh
+          </Button>
+        </div>
+        {!formData.imageUrl && (
+          <div className="text-sm text-muted-foreground">Add/select an image to search for offers.</div>
+        )}
+        {formData.imageUrl && offersLoading && (
+          <div className="text-sm text-muted-foreground">Searching offers…</div>
+        )}
+        {formData.imageUrl && !offersLoading && (!offers || offers.length === 0) && (
+          <div className="text-sm text-muted-foreground">No offers yet.</div>
+        )}
+        {formData.imageUrl && !offersLoading && offers && offers.length > 0 && (
+          <div className="space-y-1">
+            {offers.map((o) => (
+              <div key={o.url} className="text-sm flex items-center gap-2">
+                <span className="flex-1 min-w-0 truncate" title={o.title}>{o.title}</span>
+                <span className="shrink-0 font-medium">{o.currency} {o.price.toFixed(2)}</span>
+                <a href={o.url} target="_blank" rel="noreferrer" className="text-primary underline inline-flex items-center gap-1">
+                  Open <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            ))}
+            <div className="pt-2 text-sm">
+              <span className="opacity-70 mr-2">Average (USD):</span>
+              <span className="font-semibold">{avgOffersUSD != null ? `$${avgOffersUSD.toFixed(2)}` : '-'}</span>
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="flex gap-2 justify-end">
   <Button variant="outline" type="button" onClick={onCancel}>{t('form.cancel')}</Button>
