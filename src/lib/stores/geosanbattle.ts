@@ -13,6 +13,12 @@ function keyFor(model: GundamModel) {
   return `store:geosan:v2:${(model.name || '').toLowerCase()}|${model.grade || ''}`;
 }
 
+// Known URL overrides for exact matches
+const URL_OVERRIDES: Array<{ test: RegExp; url: string }> = [
+  // HG Exia
+  { test: /\bhg\b.*\bexia\b/i, url: `${BASE}/producto/hg-gundam-00-1-144-gundam-exia-no-01/` },
+];
+
 function gradeAbbr(g?: GundamGrade) {
   switch (g) {
     case 'High Grade (HG)': return 'HG';
@@ -82,7 +88,7 @@ function parseEuro(html: string): number | null {
   return Number.isFinite(num) ? num : null;
 }
 
-type PickOpts = { gradeAbbr?: string; scale?: string };
+type PickOpts = { gradeAbbr?: string; scale?: string; tokens?: string[] };
 
 async function searchAndPickProductUrl(query: string, opts?: PickOpts): Promise<string | null> {
   const candidates = [
@@ -118,12 +124,19 @@ async function searchAndPickProductUrl(query: string, opts?: PickOpts): Promise<
   // Score items using grade abbreviation and scale, plus price as a weak signal
   const ab = opts?.gradeAbbr?.toLowerCase();
   const sc = opts?.scale?.toLowerCase();
+  const toks = (opts?.tokens || []).map(s => s.toLowerCase()).filter(Boolean);
   const scored = allItems.map(it => {
     const t = (it.title || '').toLowerCase();
     let s = 0;
     if (ab && new RegExp(`(^|[^a-z0-9])${ab}([^a-z0-9]|$)`, 'i').test(t)) s += 15; // exact-ish grade token
     if (sc && t.includes(sc)) s += 12; // scale match
-    // small boost if title includes "gundam" and the cleaned name fragment (handled by query)
+    // boost tokens from the requested name
+    for (const tok of toks) {
+      if (!tok) continue;
+      if (t.includes(tok)) s += 8;
+      if (new RegExp(`(^|[-_\s])${tok}($|[-_\s])`, 'i').test(t)) s += 2;
+    }
+    // small boost if title includes "gundam"
     if (t.includes('gundam')) s += 2;
     // strong penalties for variants/option sets similar to image ranking
     if (/clear\s*color|titanium|deactive|effect\s*unit|option\s*parts?|weapon\s*set|parts\s*set|recirculation|luminous|neon|plated|sparkle|mirror|coating|exclusive|limited/i.test(t)) s -= 40;
@@ -149,9 +162,13 @@ export async function getGeosanBattlePriceUSD(model: GundamModel): Promise<{ pri
 
   const grade = model.grade as GundamGrade;
   const queries = buildQueries(name, grade);
+  const tokens = normalizeName(name).split(/\s+/).map(s => s.trim()).filter(s => s && !QUERY_STOPWORDS.has(s.toLowerCase()) && s.length > 1);
   let url: string | null = null;
+  // Apply overrides first
+  const override = URL_OVERRIDES.find(o => o.test.test(`${(gradeAbbr(grade) || '')} ${name}`));
+  if (override) url = override.url;
   for (const q of queries) {
-    url = await searchAndPickProductUrl(q, { gradeAbbr: gradeAbbr(grade), scale: scaleForGrade(grade) });
+    url = await searchAndPickProductUrl(q, { gradeAbbr: gradeAbbr(grade), scale: scaleForGrade(grade), tokens });
     if (url) break;
   }
   if (!url) return null;

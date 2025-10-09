@@ -12,6 +12,12 @@ function keyFor(model: GundamModel) {
   return `store:hgusa:v1:${(model.name || '').toLowerCase()}|${model.grade || ''}`;
 }
 
+// Known exact overrides to ensure perfect matches for common kits
+const HANDLE_OVERRIDES: Array<{ test: RegExp; handle: string }> = [
+  // HG Exia
+  { test: /\bhg\b.*\bexia\b/i, handle: 'hg-1-144-01-gundam-exia' },
+];
+
 async function findProductHandle(query: string): Promise<string | null> {
   try {
     const url = proxied(`${BASE}/search/suggest.json?q=${encodeURIComponent(query)}&resources[type]=product&resources[limit]=10`);
@@ -87,11 +93,14 @@ export async function getHobbyGundamUSAPrice(model: GundamModel): Promise<{ pric
   } catch {}
 
   const handle = await findProductHandle(name);
-  if (!handle) return null;
-  const cents = await fetchPriceCentsByHandle(handle);
+  // Apply overrides if the name matches known patterns
+  const override = HANDLE_OVERRIDES.find(o => o.test.test(`${(model.grade || '')} ${name}`));
+  const chosenHandle = override?.handle || handle;
+  if (!chosenHandle) return null;
+  const cents = await fetchPriceCentsByHandle(chosenHandle);
   if (cents == null) return null;
   const usd = Math.round(cents) / 100;
-  const url = `${BASE}/products/${handle}`;
+  const url = `${BASE}/products/${chosenHandle}`;
   try { localStorage.setItem(cacheKey, JSON.stringify({ price: usd, ts: Date.now(), url })); } catch {}
   return { price: usd, currency: 'USD', url };
 }
