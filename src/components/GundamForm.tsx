@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ImageSelector } from '@/components/ImageSelector';
 import { identifyFromImage, searchOffersForImage, type MerchantOffer } from '@/lib/vision';
+import { identifyFromImageFree } from '@/lib/ocr';
 
 type Props = {
   model?: GundamModel | null;
@@ -209,7 +210,11 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
               if (!formData.imageUrl) return;
               setIsSearchingImage(true);
               try {
-                const res = await identifyFromImage(formData.imageUrl);
+                // Try free OCR first; if it yields nothing useful, try server endpoint
+                let res = await identifyFromImageFree(formData.imageUrl);
+                if (!res?.name && !res?.grade) {
+                  try { res = await identifyFromImage(formData.imageUrl); } catch {}
+                }
                 setFormData(prev => ({
                   ...prev,
                   name: res.name || prev.name,
@@ -218,6 +223,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
                 if (alsoSearchOffers) {
                   setIsSearchingOffers(true);
                   try {
+                    // Offers: we still call server (can be mocked), or skip if you want fully free
                     const list = await searchOffersForImage(formData.imageUrl);
                     setOffers(list);
                   } finally {
