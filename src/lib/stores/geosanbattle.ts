@@ -134,6 +134,31 @@ function extractPriceEURFromSummary(html: string): number | null {
   return eur;
 }
 
+// Meta and generic JSON extraction helpers for hidden prices
+function extractPriceEURFromMeta(html: string): number | null {
+  // OpenGraph or product meta
+  const metas = [
+    /<meta[^>]*property=["']product:price:amount["'][^>]*content=["']([^"']+)["'][^>]*>/i,
+    /<meta[^>]*property=["']og:price:amount["'][^>]*content=["']([^"']+)["'][^>]*>/i,
+    /<meta[^>]*itemprop=["']price["'][^>]*content=["']([^"']+)["'][^>]*>/i,
+  ];
+  for (const re of metas) {
+    const m = html.match(re);
+    if (m && m[1]) {
+      const raw = m[1].trim();
+      const num = parseFloat(raw.replace(',', '.'));
+      if (Number.isFinite(num)) return num;
+    }
+  }
+  // Generic price:"xx" in inline JSON (last resort)
+  const m2 = html.match(/\bprice\b\s*[:=]\s*"?(\d{1,4}(?:[.,]\d{2})?)"?/i);
+  if (m2 && m2[1]) {
+    const n = parseFloat(m2[1].replace(',', '.'));
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
 type PickOpts = { gradeAbbr?: string; scale?: string; tokens?: string[] };
 
 async function searchAndPickProductUrl(query: string, opts?: PickOpts): Promise<string | null> {
@@ -250,10 +275,11 @@ export async function getGeosanBattlePriceUSD(
     if (!res.ok) return null;
     const html = await res.text();
     // Prefer structured data or summary price over first € on page
-    let eur = extractPriceEURFromJsonLD(html);
-    if (eur == null) eur = extractPriceEURFromSummary(html);
+  let eur = extractPriceEURFromJsonLD(html);
+  if (eur == null) eur = extractPriceEURFromSummary(html);
+  if (eur == null) eur = extractPriceEURFromMeta(html);
     if (eur == null) eur = parseEuro(html);
-    if (DEBUG) console.debug('[Geosan] parsed prices', { jsonLD: extractPriceEURFromJsonLD(html), summary: extractPriceEURFromSummary(html), fallback: parseEuro(html), chosen: eur });
+  if (DEBUG) console.debug('[Geosan] parsed prices', { jsonLD: extractPriceEURFromJsonLD(html), summary: extractPriceEURFromSummary(html), meta: extractPriceEURFromMeta(html), fallback: parseEuro(html), chosen: eur });
     if (eur == null) return null;
     const usd = Math.round((eur * EUR_USD) * 100) / 100;
     try { localStorage.setItem(cacheKey, JSON.stringify({ price: usd, ts: Date.now(), url })); } catch {}
