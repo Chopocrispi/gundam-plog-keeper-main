@@ -4,16 +4,15 @@ type ProviderResult = { price: number; url: string } | null;
 
 const DEBUG = ((import.meta as unknown as { env?: { VITE_DEBUG_PRICING?: string } }).env?.VITE_DEBUG_PRICING) === 'true';
 const PROXY_BASE = ((import.meta as unknown as { env?: { VITE_PROXY_BASE?: string } }).env?.VITE_PROXY_BASE) as string | undefined;
-const GEOSAN_BASE = (((import.meta as unknown as { env?: { VITE_STORE_GEOSAN_BASE?: string } }).env?.VITE_STORE_GEOSAN_BASE) as string | undefined) || 'https://geosan-battle.com';
+// Correct domain (no hyphen)
+const GEOSAN_BASE = (((import.meta as unknown as { env?: { VITE_STORE_GEOSAN_BASE?: string } }).env?.VITE_STORE_GEOSAN_BASE) as string | undefined) || 'https://geosanbattle.com';
 const EUR_USD_RATE = Number(((import.meta as unknown as { env?: { VITE_EUR_USD_RATE?: string } }).env?.VITE_EUR_USD_RATE)) || 1.08;
 
 function proxied(url: string) {
   return PROXY_BASE ? `${PROXY_BASE}?url=${encodeURIComponent(url)}` : url;
 }
 
-function cacheKey(name: string) {
-  return `geosan:v3:${name.toLowerCase()}`;
-}
+function cacheKey(name: string) { return `geosan:v3:${name.toLowerCase()}`; }
 
 function gradeAbbr(grade?: GundamGrade): string {
   switch (grade) {
@@ -32,56 +31,57 @@ function buildQueries(name: string, grade?: GundamGrade): string[] {
   const abbr = gradeAbbr(grade);
   const base = `${abbr} ${name}`.trim();
   const variants = [base, name];
-  // Try without parentheses etc.
   const simple = name.replace(/\([^)]*\)/g, '').replace(/\[[^\]]*\]/g, '').trim();
   if (simple && simple !== name) variants.push(`${abbr} ${simple}`.trim(), simple);
   return Array.from(new Set(variants.filter(Boolean)));
 }
 
-function normalize(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-}
+function normalize(s: string) { return s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
 
 function scoreTitle(title: string, qTokens: string[], abbr: string) {
   const t = normalize(title);
-  if (abbr && !new RegExp(String.raw`(^|\s)${abbr.toLowerCase()}(\s|$)`).test(t)) return -1; // ensure grade presence
-  if (/\b(cesta|raffle|sorteo)\b/.test(t)) return -1; // ignore baskets/raffles
+  if (abbr && !new RegExp(String.raw`(^|\s)${abbr.toLowerCase()}(\s|$)`).test(t)) return -1;
+  if (/\b(cesta|raffle|sorteo)\b/.test(t)) return -1;
   let score = 0;
   for (const tok of qTokens) if (t.includes(tok)) score += 1;
   if (/1\/(144|100|60)/.test(t)) score += 0.5;
   if (t.includes('gundam')) score += 0.25;
-  // penalize variant words
   if (/\b(clear|metallic|translucent|event|pearl|coating|ver\.|version)\b/.test(t)) score -= 0.5;
   return score;
+}
+
+async function fetchBestFromSearchUrl(searchUrl: string, qTokens: string[], abbr: string): Promise<string | null> {
+  const res = await fetch(searchUrl, { mode: 'cors' });
+  if (!res.ok) return null;
+  const html = await res.text();
+  const linkRegex = /<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+  const candidates: Array<{ href: string; text: string; score: number }> = [];
+  let m: RegExpExecArray | null;
+  while ((m = linkRegex.exec(html)) !== null) {
+    const href = m[1];
+    const text = m[2] || '';
+    if (!/\/producto\//.test(href)) continue;
+    const score = scoreTitle(text, qTokens, abbr);
+    if (score > 0) candidates.push({ href, text, score });
+  }
+  candidates.sort((a, b) => b.score - a.score);
+  const pick = candidates[0]?.href;
+  if (!pick) return null;
+  return pick.startsWith('http') ? pick : GEOSAN_BASE.replace(/\/$/, '') + pick;
 }
 
 async function searchAndPickProductUrl(query: string, grade?: GundamGrade): Promise<string | null> {
   const qTokens = normalize(query).split(' ').filter(Boolean).filter(t => t.length > 1);
   const abbr = gradeAbbr(grade);
-  const url = proxied(`${GEOSAN_BASE.replace(/\/$/, '')}/?s=${encodeURIComponent(query)}`);
-  try {
-    const res = await fetch(url, { mode: 'cors' });
-    if (!res.ok) return null;
-    const html = await res.text();
-    // Collect candidate product links
-    const linkRegex = /<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
-    const candidates: Array<{ href: string; text: string; score: number }> = [];
-    let m: RegExpExecArray | null;
-    while ((m = linkRegex.exec(html)) !== null) {
-      const href = m[1];
-      const text = m[2] || '';
-      if (!/\/producto\//.test(href)) continue; // likely product
-      const score = scoreTitle(text, qTokens, abbr);
-      if (score > 0) candidates.push({ href, text, score });
-    }
-    candidates.sort((a, b) => b.score - a.score);
-    const pick = candidates[0]?.href;
-    if (!pick) return null;
-    return pick.startsWith('http') ? pick : GEOSAN_BASE.replace(/\/$/, '') + pick;
-  } catch (e) {
-    if (DEBUG) console.debug('[geosan] search error', e);
-    return null;
-  }
+  // Primary: product-only search
+  const url1 = proxied(`${GEOSAN_BASE.replace(/\/$/, '')}/?s=${encodeURIComponent(query)}&post_type=product`);
+  let pick = null;
+  try { pick = await fetchBestFromSearchUrl(url1, qTokens, abbr); } catch (e) { if (DEBUG) console.debug('[geosan] search error', e); }
+  if (pick) return pick;
+  // Fallback: generic search
+  const url2 = proxied(`${GEOSAN_BASE.replace(/\/$/, '')}/?s=${encodeURIComponent(query)}`);
+  try { pick = await fetchBestFromSearchUrl(url2, qTokens, abbr); } catch (e) { if (DEBUG) console.debug('[geosan] fallback search error', e); }
+  return pick;
 }
 
 function parseEuroFromText(text: string): number | null {
@@ -170,6 +170,8 @@ async function fetchProductPriceEUR(url: string): Promise<number | null> {
       extractPriceEURFromJsonLD(html) ??
       extractPriceEURFromSummary(html) ??
       extractPriceEURFromMeta(html) ??
+      // last resort: try to find a euro-formatted number anywhere on the page
+      parseEuroFromText(html) ??
       null
     );
   } catch (e) {
