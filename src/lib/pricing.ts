@@ -1,111 +1,39 @@
-import type { GundamModel, GundamGrade } from '@/types/gundam';
+import type { GundamModel } from '@/types/gundam';
 import { getHobbyGundamUSAPrice } from '@/lib/stores/hobbygundamusa';
 import { getGeosanBattlePriceUSD } from '@/lib/stores/geosanbattle';
 
-export type PriceQuote = {
-  store: string;
-  price: number;
-  currency: string; // e.g., USD
-  url?: string;
-};
-
-export interface PriceProvider {
-  id: string;
-  name: string;
-  search: (modelName: string, grade?: GundamGrade) => Promise<PriceQuote | null>;
-}
-
-// Simple baseline by grade (rough typical street prices)
-const gradeBaselineUSD: Record<string, number> = {
-  'High Grade (HG)': 22,
-  'Real Grade (RG)': 35,
-  'Master Grade (MG)': 55,
-  'Perfect Grade (PG)': 200,
-  'Full Mechanics (FM)': 50,
-  'Super Deformed (SD)': 15,
-};
-
-class BaselineProvider implements PriceProvider {
-  id = 'baseline';
-  name = 'Baseline';
-  async search(_modelName: string, grade?: GundamGrade): Promise<PriceQuote | null> {
-    const price = grade ? gradeBaselineUSD[grade] : undefined;
-    if (!price) return null;
-    return { store: this.name, price, currency: 'USD' };
-  }
-}
-
-class AdjustedBaselineProvider implements PriceProvider {
-  id: string;
-  name: string;
-  factor: number;
-  constructor(id: string, name: string, factor: number) {
-    this.id = id; this.name = name; this.factor = factor;
-  }
-  async search(_modelName: string, grade?: GundamGrade): Promise<PriceQuote | null> {
-    const base = grade ? gradeBaselineUSD[grade] : undefined;
-    if (!base) return null;
-    const price = Math.round(base * this.factor);
-    return { store: this.name, price, currency: 'USD' };
-  }
-}
-
-// In the future, add JSON-backed providers that fetch `/store-data/*.json` and match by keywords.
-
-const providers: PriceProvider[] = [
-  new BaselineProvider(),
-  new AdjustedBaselineProvider('storeA', 'Sample Store A', 0.92),
-  new AdjustedBaselineProvider('storeB', 'Sample Store B', 1.08),
-];
+export type PriceQuote = { store: string; price: number; currency: 'USD'; url?: string };
 
 type CacheEntry = { quotes: PriceQuote[]; ts: number };
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
 
-function cacheKey(name: string, grade?: string) {
-  return `pricecache:v1:${name.toLowerCase()}|${grade || ''}`;
-}
+function cacheKey(name: string) { return `pricecache:v2:${name.toLowerCase()}`; }
 
-export async function estimateModelPrice(model: GundamModel): Promise<{ quotes: PriceQuote[]; average: number | null; currency: string } | null> {
+export async function estimateModelPrice(model: GundamModel): Promise<{ quotes: PriceQuote[]; average: number | null; currency: 'USD' } | null> {
   const name = model.name?.trim();
   if (!name) return null;
-  const key = cacheKey(name, model.grade);
+  const key = cacheKey(name);
   try {
     const raw = localStorage.getItem(key);
     if (raw) {
-      const entry = JSON.parse(raw) as CacheEntry;
-      if (Date.now() - entry.ts < CACHE_TTL_MS) {
-        const avg = entry.quotes.length ? Math.round(entry.quotes.reduce((a, q) => a + q.price, 0) / entry.quotes.length) : null;
-        return { quotes: entry.quotes, average: avg, currency: entry.quotes[0]?.currency || 'USD' };
+      const e = JSON.parse(raw) as CacheEntry;
+      if (Date.now() - e.ts < CACHE_TTL_MS) {
+        const avg = e.quotes.length ? Math.round((e.quotes.reduce((a, q) => a + q.price, 0) / e.quotes.length) * 100) / 100 : null;
+        return { quotes: e.quotes, average: avg, currency: 'USD' };
       }
     }
   } catch {}
 
-  // Try real store first
-  const real = await getHobbyGundamUSAPrice(model);
-  const real2 = await getGeosanBattlePriceUSD(model);
-  const baselineResults = await Promise.all(
-    providers.map(p => p.search(name, model.grade as GundamGrade))
-  );
+  const [hg, geo] = await Promise.all([
+    getHobbyGundamUSAPrice(model),
+    getGeosanBattlePriceUSD(model),
+  ]);
 
-  const quotes = [
-    ...(real ? [{ store: 'Hobby Gundam USA', price: Math.round(real.price), currency: real.currency, url: real.url }] : []),
-    ...(real2 ? [{ store: 'Geosan Battle', price: Math.round(real2.price), currency: real2.currency, url: real2.url }] : []),
-    ...(baselineResults.filter(Boolean) as PriceQuote[])
-  ];
-  if (!quotes.length) return null;
-  const average = Math.round(quotes.reduce((a, q) => a + q.price, 0) / quotes.length);
+  const quotes: PriceQuote[] = [];
+  if (hg?.price != null) quotes.push({ store: 'HobbyGundamUSA', price: hg.price, currency: 'USD', url: hg.url });
+  if (geo?.price != null) quotes.push({ store: 'Geosan Battle', price: geo.price, currency: 'USD', url: geo.url });
 
-  try { localStorage.setItem(key, JSON.stringify({ quotes, ts: Date.now() } satisfies CacheEntry)); } catch {}
-  return { quotes, average, currency: quotes[0].currency };
-}
-
-export async function estimateCollectionValue(models: GundamModel[]): Promise<{ total: number; counted: number; currency: string; perModel: Record<string, number> }>{
-  let total = 0; let counted = 0; const perModel: Record<string, number> = {};
-  const currency = 'USD';
-  for (const m of models) {
-    const est = await estimateModelPrice(m);
-    const price = est?.average ?? (typeof m.price === 'number' ? m.price : null);
-    if (price != null) { total += price; counted += 1; perModel[m.id] = price; }
-  }
-  return { total, counted, currency, perModel };
+  const avg = quotes.length ? Math.round((quotes.reduce((a, q) => a + q.price, 0) / quotes.length) * 100) / 100 : null;
+  try { localStorage.setItem(key, JSON.stringify({ quotes, ts: Date.now() } as CacheEntry)); } catch {}
+  return { quotes, average: avg, currency: 'USD' };
 }

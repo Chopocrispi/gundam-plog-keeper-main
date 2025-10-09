@@ -4,6 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Star, Edit, Trash2, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useEffect, useState } from 'react';
+import { estimateModelPrice } from '@/lib/pricing';
 
 interface GundamCardProps {
   model: GundamModel;
@@ -20,6 +22,17 @@ const statusColors = {
 };
 
 export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
+  const [avgPrice, setAvgPrice] = useState<number | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const est = await estimateModelPrice(model);
+      if (!mounted) return;
+      setAvgPrice(est?.average ?? null);
+    })();
+    return () => { mounted = false; };
+  }, [model.id, model.name, model.grade]);
   const renderStars = () => {
     if (!model.rating) return null;
     
@@ -76,6 +89,9 @@ export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
             <Badge variant="outline" className="text-xs">
               {model.grade}
             </Badge>
+            {avgPrice != null && (
+              <span className="text-xs font-medium text-gundam-red">${avgPrice.toFixed(2)}</span>
+            )}
             {renderStars()}
           </div>
         </div>
