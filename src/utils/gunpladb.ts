@@ -73,25 +73,33 @@ function scoreImageName(name: string): number {
   if (/^hg|^rg|^mg|^pg|^fm|^sd/i.test(n)) score += 10;
   if (/[-_]rx|[-_]zgmf|[-_]xxxg|[-_]gn|[-_]amx|[-_]msn|[-_]stts/i.test(n)) score += 3;
   // Penalize special variants and accessory/option sets
-  if (/clear|titanium|deactive|effect[-_ ]unit|option[-_ ]parts|weapon[-_ ]set|parts[-_ ]set|color/i.test(n)) score -= 20;
+  if (isVariantName(n)) score -= 200; // heavy penalty; still kept if no alternatives
   if (/限定|exclusive|limited/i.test(n)) score -= 10;
   // Penalize obvious non-kit images
   if (/filelist|thumb|_s\./i.test(n)) score -= 50;
   return score;
 }
 
+function isVariantName(name: string): boolean {
+  const n = name.toLowerCase();
+  return /clear[\s_-]*color|titanium|deactive|effect[\s_-]*unit|option[\s_-]*parts?|weapon[\s_-]*set|parts[\s_-]*set|recirculation|luminous|neon|plated|titanium|gold(?!en\s?frame)|sparkle|mirror|coating|exclusive|limited/.test(n);
+}
+
 function rankImageNames(names: string[]): string[] {
-  return [...names]
-    .map(n => ({ n, s: scoreImageName(n) }))
-    .sort((a, b) => b.s - a.s)
-    .map(x => x.n);
+  const arr = [...names].map(n => ({ n, s: scoreImageName(n), v: isVariantName(n) }));
+  const nonVar = arr.filter(x => !x.v).sort((a, b) => b.s - a.s).map(x => x.n);
+  const vars = arr.filter(x => x.v).sort((a, b) => b.s - a.s).map(x => x.n);
+  return nonVar.length ? [...nonVar, ...vars] : [...vars];
 }
 
 function rankUrls(urls: string[]): string[] {
-  return [...urls]
-    .map(u => ({ u, s: scoreImageName(u.split('/').pop() || u) }))
-    .sort((a, b) => b.s - a.s)
-    .map(x => x.u);
+  const arr = [...urls].map(u => {
+    const name = u.split('/').pop() || u;
+    return { u, s: scoreImageName(name), v: isVariantName(name) };
+  });
+  const nonVar = arr.filter(x => !x.v).sort((a, b) => b.s - a.s).map(x => x.u);
+  const vars = arr.filter(x => x.v).sort((a, b) => b.s - a.s).map(x => x.u);
+  return nonVar.length ? [...nonVar, ...vars] : [...vars];
 }
 
 /**
@@ -2896,8 +2904,16 @@ export async function fetchGundamImages(
       .replace(/\s+/g, ' ')
       .trim();
 
-  // Extract keywords (min length = 2 to include short model names like 'ZZ'), minus stopwords
-  const keywords = stripStopwords(cleanName.split(' ').filter(word => word.length > 1));
+    // Extract keywords (min length = 2 to include short model names like 'ZZ'), minus stopwords
+    const keywords = stripStopwords(cleanName.split(' ').filter(word => word.length > 1));
+
+    // NEW: quick local filename pass using our index, rank, and return if we have solid matches
+    const localCandidates = searchGunplaImagesByKeywords(keywords, grade, series)
+      .map(u => u.replace('https://cdn.gunpladb.net/', ''));
+    if (localCandidates.length > 0) {
+      const rankedLocal = rankImageNames(localCandidates).map(n => `https://cdn.gunpladb.net/${n}`);
+      return { success: true, imageUrl: rankedLocal[0], imageOptions: rankedLocal.slice(0, 20) };
+    }
 
     // Grade → prefixes
     const gradeMap: Record<string, string[]> = {
@@ -2941,7 +2957,7 @@ export async function fetchGundamImages(
       }
     }
 
-    // Deduplicate
+  // Deduplicate
     const uniqueUrls = [...new Set(possibleUrls)];
 
     // Validate URLs (limit 20 checks) - if series provided, prioritize URLs that contain any

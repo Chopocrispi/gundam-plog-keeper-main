@@ -125,6 +125,8 @@ async function searchAndPickProductUrl(query: string, opts?: PickOpts): Promise<
     if (sc && t.includes(sc)) s += 12; // scale match
     // small boost if title includes "gundam" and the cleaned name fragment (handled by query)
     if (t.includes('gundam')) s += 2;
+    // strong penalties for variants/option sets similar to image ranking
+    if (/clear\s*color|titanium|deactive|effect\s*unit|option\s*parts?|weapon\s*set|parts\s*set|recirculation|luminous|neon|plated|sparkle|mirror|coating|exclusive|limited/i.test(t)) s -= 40;
     // price as tie-breaker (prefer higher → full kits)
     s += Math.min(it.price / 10, 10);
     return { ...it, __score: s } as any;
