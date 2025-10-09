@@ -270,7 +270,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
           </div>
         )}
       </div>
-
+      //Something like this to separate the offers panel
       {offers && offers.length > 0 && (
         <div className="border rounded-md p-3 sm:p-4">
           <div className="font-medium mb-2">Web Offers</div>
