@@ -31,14 +31,22 @@ export async function loadOffersIndex(): Promise<OffersIndex> {
   try {
     // Respect Vite base path (works for dev, preview, and subpath deployments)
     const base = (import.meta as any)?.env?.BASE_URL || '/';
-    const makePath = (name: string) => base.endsWith('/') ? `${base}${name}` : `${base}/${name}`;
-    const primary = makePath('offers.json');
-    const fallback = makePath('offers.sample.json');
+  const makePath = (name: string) => base.endsWith('/') ? `${base}${name}` : `${base}/${name}`;
+  const buster = `t=${Date.now()}`;
+  const primary = `${makePath('offers.json')}?${buster}`;
+  const fallback = `${makePath('offers.sample.json')}?${buster}`;
     // eslint-disable-next-line no-console
     console.log('[offers] fetching index from', primary, 'or', fallback);
-    let res = await fetch(primary, { cache: 'no-store' });
-    if (!res.ok) {
+    let res: Response;
+    try {
+      res = await fetch(primary, { cache: 'no-store' });
+    } catch (e) {
+      console.warn('[offers] primary fetch failed, trying fallback', e);
       res = await fetch(fallback, { cache: 'no-store' });
+    }
+    if (!res.ok) {
+      // eslint-disable-next-line no-console
+      console.error('[offers] failed to load index:', res.status, res.statusText);
     }
     if (!res.ok) throw new Error(`Offers index fetch failed: ${res.status}`);
     const data = (await res.json()) as OffersIndex;
