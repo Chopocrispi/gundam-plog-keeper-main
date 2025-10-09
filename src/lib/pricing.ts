@@ -6,27 +6,34 @@ export type PriceQuote = { store: string; price: number; currency: 'USD'; url?: 
 
 type CacheEntry = { quotes: PriceQuote[]; ts: number };
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
+const DEBUG = (import.meta as any).env?.VITE_DEBUG_PRICING === 'true';
 
 function cacheKey(name: string) { return `pricecache:v2:${name.toLowerCase()}`; }
 
-export async function estimateModelPrice(model: GundamModel): Promise<{ quotes: PriceQuote[]; average: number | null; currency: 'USD' } | null> {
+export async function estimateModelPrice(
+  model: GundamModel,
+  opts?: { force?: boolean }
+): Promise<{ quotes: PriceQuote[]; average: number | null; currency: 'USD' } | null> {
   const name = model.name?.trim();
   if (!name) return null;
   const key = cacheKey(name);
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw) {
-      const e = JSON.parse(raw) as CacheEntry;
-      if (Date.now() - e.ts < CACHE_TTL_MS) {
-        const avg = e.quotes.length ? Math.round((e.quotes.reduce((a, q) => a + q.price, 0) / e.quotes.length) * 100) / 100 : null;
-        return { quotes: e.quotes, average: avg, currency: 'USD' };
+  if (!opts?.force) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const e = JSON.parse(raw) as CacheEntry;
+        if (Date.now() - e.ts < CACHE_TTL_MS) {
+          const avg = e.quotes.length ? Math.round((e.quotes.reduce((a, q) => a + q.price, 0) / e.quotes.length) * 100) / 100 : null;
+          if (DEBUG) console.debug('[pricing] cache hit', { name, quotes: e.quotes, avg });
+          return { quotes: e.quotes, average: avg, currency: 'USD' };
+        }
       }
-    }
-  } catch {}
-
+    } catch {}
+  }
+  if (DEBUG) console.debug('[pricing] fetching providers', { name, force: !!opts?.force });
   const [hg, geo] = await Promise.all([
-    getHobbyGundamUSAPrice(model),
-    getGeosanBattlePriceUSD(model),
+    getHobbyGundamUSAPrice(model, { force: !!opts?.force }),
+    getGeosanBattlePriceUSD(model, { force: !!opts?.force }),
   ]);
 
   const quotes: PriceQuote[] = [];

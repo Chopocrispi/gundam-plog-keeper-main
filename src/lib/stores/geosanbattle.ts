@@ -4,6 +4,7 @@ const BASE = 'https://geosanbattle.com';
 const PROXY_BASE = (import.meta as any).env?.VITE_PROXY_BASE || 'https://gundapp.xyz/api/proxy';
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
 const EUR_USD = Number((import.meta as any).env?.VITE_EUR_USD_RATE) || 1.08;
+const DEBUG = (import.meta as any).env?.VITE_DEBUG_PRICING === 'true';
 
 function proxied(url: string) {
   return PROXY_BASE ? `${PROXY_BASE}?url=${encodeURIComponent(url)}` : url;
@@ -150,17 +151,25 @@ async function searchAndPickProductUrl(query: string, opts?: PickOpts): Promise<
   return scored[0].url;
 }
 
-export async function getGeosanBattlePriceUSD(model: GundamModel): Promise<{ price: number; currency: 'USD'; url?: string } | null> {
+export async function getGeosanBattlePriceUSD(
+  model: GundamModel,
+  opts?: { force?: boolean }
+): Promise<{ price: number; currency: 'USD'; url?: string } | null> {
   const name = model.name?.trim();
   if (!name) return null;
   const cacheKey = keyFor(model);
-  try {
-    const raw = localStorage.getItem(cacheKey);
-    if (raw) {
-      const cached = JSON.parse(raw) as { price: number; ts: number; url?: string };
-      if (Date.now() - cached.ts < CACHE_TTL_MS) return { price: cached.price, currency: 'USD', url: cached.url };
-    }
-  } catch {}
+  if (!opts?.force) {
+    try {
+      const raw = localStorage.getItem(cacheKey);
+      if (raw) {
+        const cached = JSON.parse(raw) as { price: number; ts: number; url?: string };
+        if (Date.now() - cached.ts < CACHE_TTL_MS) {
+          if (DEBUG) console.debug('[Geosan] cache hit', { name, url: cached.url, price: cached.price });
+          return { price: cached.price, currency: 'USD', url: cached.url };
+        }
+      }
+    } catch {}
+  }
 
   const grade = model.grade as GundamGrade;
   const queries = buildQueries(name, grade);

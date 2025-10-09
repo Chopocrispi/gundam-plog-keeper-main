@@ -58,7 +58,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
 
   // ...existing code...
 
-  const fetchPrices = useCallback(async () => {
+  const fetchPrices = useCallback(async (force?: boolean) => {
     const myReq = ++latestPriceReqRef.current;
     const name = formData.name.trim();
     if (!name) { setPriceQuotes(null); setAvgPrice(null); return; }
@@ -74,7 +74,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
         updatedAt: new Date().toISOString(),
         imageUrl: formData.imageUrl || undefined,
       } as unknown as GundamModel;
-      const res = await estimateModelPrice(tempModel);
+      const res = await estimateModelPrice(tempModel, { force });
       if (myReq !== latestPriceReqRef.current) return;
       setPriceQuotes(res?.quotes ?? null);
       setAvgPrice(res?.average ?? null);
@@ -215,7 +215,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
         <CardHeader className="py-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">Store Prices</CardTitle>
-            <Button variant="outline" type="button" size="sm" onClick={() => void fetchPrices()} disabled={loadingPrices || !formData.name.trim()}>
+            <Button variant="outline" type="button" size="sm" onClick={() => void fetchPrices(true)} disabled={loadingPrices || !formData.name.trim()}>
               <RefreshCw className={cn("h-4 w-4 mr-1", loadingPrices && 'animate-spin')} />
               Refresh
             </Button>
