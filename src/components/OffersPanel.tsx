@@ -8,9 +8,10 @@ import { ExternalLink, ShoppingCart } from 'lucide-react';
 interface OffersPanelProps {
   name: string;
   grade?: GundamGrade;
+  imageUrl?: string;
 }
 
-export function OffersPanel({ name, grade }: OffersPanelProps) {
+export function OffersPanel({ name, grade, imageUrl }: OffersPanelProps) {
   const [offers, setOffers] = useState<Offer[] | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -32,16 +33,16 @@ export function OffersPanel({ name, grade }: OffersPanelProps) {
       return;
     }
   // eslint-disable-next-line no-console
-  console.log('[OffersPanel] lookup for name/grade', { name, grade });
+    console.log('[OffersPanel] lookup for name/grade', { name, grade, imageUrl });
     setLoading(true);
     (async () => {
-      const res = await findOffersForModel(name, grade);
+      const res = await findOffersForModel(name, grade, { imageUrl });
       if (cancelled) return;
       setOffers(res);
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [name, grade]);
+  }, [name, grade, imageUrl]);
 
   return (
     <Card className="mt-2">

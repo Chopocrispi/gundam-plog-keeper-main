@@ -49,8 +49,56 @@ export async function loadOffersIndex(): Promise<OffersIndex> {
   }
 }
 
-export async function findOffersForModel(name: string, grade?: GundamGrade): Promise<Offer[]> {
+const STOP = new Set([
+  'hg','rg','mg','pg','fm','sd','ms',
+  'high','real','master','perfect','full','mechanics','mega','size','super','deformed','grade',
+  'gundam','mobile','suit','model','kit'
+]);
+
+function tokenize(s: string): string[] {
+  const withSpaces = s.replace(/([a-z])([A-Z])/g, '$1 $2');
+  return normalize(withSpaces)
+    .split(' ')
+    .filter(Boolean)
+    .filter(t => !STOP.has(t) && t.length > 1);
+}
+
+function tokensFromImageUrl(imageUrl?: string): string[] {
+  if (!imageUrl) return [];
+  try {
+    const u = new URL(imageUrl);
+    const base = u.pathname.split('/').pop() || '';
+    const namePart = base.replace(/\.[^.]+$/, '');
+    return tokenize(namePart);
+  } catch {
+    return tokenize(imageUrl);
+  }
+}
+
+function pickByTokens(idx: OffersIndex, tokens: string[]): Offer[] {
+  if (!tokens.length) return [];
+  const results: Offer[] = [];
+  const seen = new Set<string>();
+  for (const [key, offers] of Object.entries(idx)) {
+    const k = normalize(key);
+    const ok = tokens.every(t => k.includes(t));
+    if (ok) {
+      for (const o of offers) {
+        const sig = `${o.store}|${o.url}`;
+        if (!seen.has(sig)) {
+          seen.add(sig);
+          results.push(o);
+        }
+      }
+    }
+  }
+  return results;
+}
+
+export async function findOffersForModel(name: string, grade?: GundamGrade, opts?: { extraTerms?: string[]; imageUrl?: string }): Promise<Offer[]> {
   const idx = await loadOffersIndex();
+  const extra = (opts?.extraTerms || []).concat(tokensFromImageUrl(opts?.imageUrl || ''));
+  const extraStr = extra.join(' ');
   const q = normalize(`${gradeAbbr(grade)} ${name}`.trim());
   // eslint-disable-next-line no-console
   console.log('[offers] query:', q);
@@ -62,6 +110,17 @@ export async function findOffersForModel(name: string, grade?: GundamGrade): Pro
   // eslint-disable-next-line no-console
   console.log('[offers] fallback query:', fallback);
     offers = idx[fallback] || [];
+  }
+  if (!offers || offers.length === 0) {
+    // Try with extra terms from image/name tokens
+    const combo1 = normalize(`${gradeAbbr(grade)} ${name} ${extraStr}`.trim());
+    const combo2 = normalize(`${name} ${extraStr}`.trim());
+    const tokens1 = tokenize(combo1);
+    const tokens2 = tokenize(combo2);
+    // eslint-disable-next-line no-console
+    console.log('[offers] token search with', { tokens1, tokens2 });
+    const byTokens = pickByTokens(idx, tokens1.length ? tokens1 : tokens2);
+    offers = byTokens;
   }
 
   // dedupe by store hostname and sort by price asc
