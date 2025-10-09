@@ -276,13 +276,26 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
           <div className="font-medium mb-2">Web Offers</div>
           <div className="space-y-1">
             {offers.map((o, i) => (
-              <div key={`${o.url}-${i}`} className="text-sm flex items-center gap-2">
-                <span className="w-40 shrink-0 truncate" title={o.source || new URL(o.url).hostname}>{o.source || new URL(o.url).hostname}</span>
-                <a className="underline" target="_blank" rel="noreferrer" href={o.url}>{o.title}</a>
+              <a
+                key={`${o.url}-${i}`}
+                href={o.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm flex items-center gap-2 p-2 rounded hover:bg-muted transition-colors"
+                title={o.title}
+              >
+                <span className="w-40 shrink-0 truncate text-muted-foreground" title={o.source || new URL(o.url).hostname}>
+                  {o.source || new URL(o.url).hostname}
+                </span>
+                <span className="truncate">
+                  {o.title}
+                </span>
                 {o.price != null && (
-                  <span className="font-medium ml-auto">{o.currency || 'USD'} {o.price.toFixed(2)}</span>
+                  <span className="font-medium ml-auto underline">
+                    {(o.currency || 'USD').toUpperCase()} {o.price.toFixed(2)}
+                  </span>
                 )}
-              </div>
+              </a>
             ))}
           </div>
         </div>
