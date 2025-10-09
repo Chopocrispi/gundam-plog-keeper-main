@@ -65,6 +65,35 @@ function stripStopwords(words: string[]): string[] {
   return out;
 }
 
+// Score an image filename: higher is better. Penalize noisy variants.
+function scoreImageName(name: string): number {
+  const n = name.toLowerCase();
+  let score = 0;
+  // Prefer images that look like primary kit images
+  if (/^hg|^rg|^mg|^pg|^fm|^sd/i.test(n)) score += 10;
+  if (/[-_]rx|[-_]zgmf|[-_]xxxg|[-_]gn|[-_]amx|[-_]msn|[-_]stts/i.test(n)) score += 3;
+  // Penalize special variants and accessory/option sets
+  if (/clear|titanium|deactive|effect[-_ ]unit|option[-_ ]parts|weapon[-_ ]set|parts[-_ ]set|color/i.test(n)) score -= 20;
+  if (/限定|exclusive|limited/i.test(n)) score -= 10;
+  // Penalize obvious non-kit images
+  if (/filelist|thumb|_s\./i.test(n)) score -= 50;
+  return score;
+}
+
+function rankImageNames(names: string[]): string[] {
+  return [...names]
+    .map(n => ({ n, s: scoreImageName(n) }))
+    .sort((a, b) => b.s - a.s)
+    .map(x => x.n);
+}
+
+function rankUrls(urls: string[]): string[] {
+  return [...urls]
+    .map(u => ({ u, s: scoreImageName(u.split('/').pop() || u) }))
+    .sort((a, b) => b.s - a.s)
+    .map(x => x.u);
+}
+
 /**
  * Search Gunpla image filenames by keywords and return full CDN URLs
  */
@@ -120,10 +149,10 @@ export function searchGunplaImagesByKeywords(keywords: string[], grade?: string,
         const s2 = inferSeriesFromFilename(n);
         return (s2 || '').toLowerCase() === wanted;
       });
-      return filtered.map(n => `https://cdn.gunpladb.net/${n}`);
+      return rankImageNames(filtered).map(n => `https://cdn.gunpladb.net/${n}`);
     }
 
-    return matches.map(n => `https://cdn.gunpladb.net/${n}`);
+    return rankImageNames(matches).map(n => `https://cdn.gunpladb.net/${n}`);
   }
 
   // No grade filter (or 'Other'): fall back to previous behavior matching anywhere in filename
@@ -139,9 +168,9 @@ export function searchGunplaImagesByKeywords(keywords: string[], grade?: string,
       const s2 = inferSeriesFromFilename(n);
       return (s2 || '').toLowerCase() === want;
     });
-    return filtered.map(name => `https://cdn.gunpladb.net/${name}`);
+    return rankImageNames(filtered).map(name => `https://cdn.gunpladb.net/${name}`);
   }
-  return results.map(name => `https://cdn.gunpladb.net/${name}`);
+  return rankImageNames(results).map(name => `https://cdn.gunpladb.net/${name}`);
 }
 
 import { GunplaDBResponse, GundamGrade } from '@/types/gundam';
@@ -2941,10 +2970,12 @@ export async function fetchGundamImages(
     }
 
     if (validUrls.length > 0) {
+      // Rank valid URLs so clean kit images come first
+      const ranked = rankUrls(validUrls);
       return {
         success: true,
-        imageUrl: validUrls[0],
-        imageOptions: validUrls
+        imageUrl: ranked[0],
+        imageOptions: ranked
       };
     }
 

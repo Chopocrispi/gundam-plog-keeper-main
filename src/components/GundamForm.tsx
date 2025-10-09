@@ -98,7 +98,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
     setIsSearchingImage(true);
     try {
     // Try the existing fetch-based guesser first (do not include series)
-    const result = await fetchGundamImages(formData.name, formData.grade as GundamGrade);
+  const result = await fetchGundamImages(formData.name, formData.grade as GundamGrade, formData.series || undefined);
       if (mySearchId !== latestSearchRef.current) return; // stale
       if (result.success && result.imageUrl) {
         setFormData(prev => ({ ...prev, imageUrl: result.imageUrl! }));
@@ -121,7 +121,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
         .split(' ')
         .filter(w => w.length > 1);
 
-    const urls = searchGunplaImagesByKeywords(keywords, formData.grade);
+  const urls = searchGunplaImagesByKeywords(keywords, formData.grade, formData.series || undefined);
       if (mySearchId !== latestSearchRef.current) return; // stale
       if (urls.length > 0) {
         setFormData(prev => ({ ...prev, imageUrl: urls[0] }));

@@ -25,6 +25,18 @@ function gradeAbbr(g?: GundamGrade) {
   }
 }
 
+function scaleForGrade(g?: GundamGrade): string | undefined {
+  switch (g) {
+    case 'High Grade (HG)': return '1/144';
+    case 'Real Grade (RG)': return '1/144';
+    case 'Master Grade (MG)': return '1/100';
+    case 'Full Mechanics (FM)': return '1/100';
+    case 'Perfect Grade (PG)': return '1/60';
+    // SD commonly doesn’t use a scale in titles
+    default: return undefined;
+  }
+}
+
 // Basic stopwords to reduce noise in store search queries
 const QUERY_STOPWORDS = new Set([
   'gundam', 'mobile', 'suit', 'ver', 'version', 'clear', 'color', 'colors', 'the', 'of', 'from', 'and'
@@ -45,9 +57,17 @@ function normalizeName(raw: string): string {
 
 function buildQueries(name: string, grade?: GundamGrade) {
   const ab = gradeAbbr(grade);
+  const sc = scaleForGrade(grade);
   const cleaned = normalizeName(name);
   const q: string[] = [];
+  // Prefer grade + name
   if (ab && cleaned) q.push(`${ab} ${cleaned}`);
+  // Add scale-enhanced variants when available
+  if (sc && cleaned) {
+    if (ab) q.push(`${ab} ${cleaned} ${sc}`);
+    q.push(`${cleaned} ${sc}`, `${sc} ${cleaned}`);
+  }
+  // Generic fallbacks
   q.push(cleaned, `${cleaned} Gundam`, name);
   return Array.from(new Set(q.filter(Boolean)));
 }
@@ -62,11 +82,14 @@ function parseEuro(html: string): number | null {
   return Number.isFinite(num) ? num : null;
 }
 
-async function searchAndPickProductUrl(query: string): Promise<string | null> {
+type PickOpts = { gradeAbbr?: string; scale?: string };
+
+async function searchAndPickProductUrl(query: string, opts?: PickOpts): Promise<string | null> {
   const candidates = [
     proxied(`${BASE}/?s=${encodeURIComponent(query)}&post_type=product`),
     proxied(`${BASE}/?s=${encodeURIComponent(query)}`),
   ];
+  const allItems: Array<{ url: string; price: number; title?: string }> = [];
   for (const u of candidates) {
     try {
       const res = await fetch(u, { mode: 'cors' });
@@ -88,14 +111,26 @@ async function searchAndPickProductUrl(query: string): Promise<string | null> {
         const title = block.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i)?.[1]?.replace(/<[^>]+>/g, '').trim();
         items.push({ url, price: eur, title });
       }
-      if (items.length) {
-        // Prefer highest price to bias toward full kits
-        items.sort((a, b) => b.price - a.price);
-        return items[0].url;
-      }
+      allItems.push(...items);
     } catch {}
   }
-  return null;
+  if (!allItems.length) return null;
+  // Score items using grade abbreviation and scale, plus price as a weak signal
+  const ab = opts?.gradeAbbr?.toLowerCase();
+  const sc = opts?.scale?.toLowerCase();
+  const scored = allItems.map(it => {
+    const t = (it.title || '').toLowerCase();
+    let s = 0;
+    if (ab && new RegExp(`(^|[^a-z0-9])${ab}([^a-z0-9]|$)`, 'i').test(t)) s += 15; // exact-ish grade token
+    if (sc && t.includes(sc)) s += 12; // scale match
+    // small boost if title includes "gundam" and the cleaned name fragment (handled by query)
+    if (t.includes('gundam')) s += 2;
+    // price as tie-breaker (prefer higher → full kits)
+    s += Math.min(it.price / 10, 10);
+    return { ...it, __score: s } as any;
+  });
+  scored.sort((a, b) => b.__score - a.__score);
+  return scored[0].url;
 }
 
 export async function getGeosanBattlePriceUSD(model: GundamModel): Promise<{ price: number; currency: 'USD'; url?: string } | null> {
@@ -110,10 +145,11 @@ export async function getGeosanBattlePriceUSD(model: GundamModel): Promise<{ pri
     }
   } catch {}
 
-  const queries = buildQueries(name, model.grade as GundamGrade);
+  const grade = model.grade as GundamGrade;
+  const queries = buildQueries(name, grade);
   let url: string | null = null;
   for (const q of queries) {
-    url = await searchAndPickProductUrl(q);
+    url = await searchAndPickProductUrl(q, { gradeAbbr: gradeAbbr(grade), scale: scaleForGrade(grade) });
     if (url) break;
   }
   if (!url) return null;
