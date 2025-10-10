@@ -112,6 +112,21 @@ function queryVariants(q, grade) {
   const toksNoCodes = toksNoGrade.filter(t => !/^[a-z]*\d+[a-z\d-]*$/i.test(t));
   if (toksNoCodes.length) variants.add(toksNoCodes.join(' '));
   if (gabbr && toksNoGrade.length <= 3) variants.add(`${gabbr} ${toksNoGrade.join(' ')}`.trim());
+  // Add spelled-out single-word grade token (e.g., mastergrade) to broaden search after first pass
+  const spelled = (() => {
+    const g = (grade || '').toLowerCase();
+    if (g.includes('high grade')) return 'highgrade';
+    if (g.includes('real grade')) return 'realgrade';
+    if (g.includes('master grade')) return 'mastergrade';
+    if (g.includes('perfect grade')) return 'perfectgrade';
+    if (g.includes('full mechanics')) return 'fullmechanics';
+    if (g.includes('super deformed')) return 'superdeformed';
+    return '';
+  })();
+  if (spelled && toksNoGrade.length) {
+    variants.add(`${spelled} ${toksNoGrade.join(' ')}`.trim());
+    variants.add(`${toksNoGrade.join(' ')} ${spelled}`.trim());
+  }
   return Array.from(variants).filter(Boolean);
 }
 
