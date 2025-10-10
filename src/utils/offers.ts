@@ -322,8 +322,9 @@ export async function findOffersForModel(name: string, grade?: GundamGrade, opts
   // Resolve the most specific human title we can (prefer Supabase name by image),
   // then query the live API FIRST using that exact title to maximize store coverage.
   const imgTokens = await tokensFromImage(opts?.imageUrl || '');
-  // Use the provided title directly for the real search; do not replace it with DB-derived names
-  const effectiveName = name;
+  // Prefer the canonical kit name from the database when available
+  const dbName = await kitNameFromImage(opts?.imageUrl);
+  const effectiveName = dbName || name;
   // eslint-disable-next-line no-console
   console.log('[offers] live-first query:', { effectiveName, providedName: name, grade });
 
