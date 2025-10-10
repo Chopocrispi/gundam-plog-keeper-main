@@ -14,6 +14,7 @@ interface OffersPanelProps {
 export function OffersPanel({ name, grade, imageUrl }: OffersPanelProps) {
   const [offers, setOffers] = useState<Offer[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [hideDecals, setHideDecals] = useState(true);
 
   useEffect(() => {
     // Warm the offers index so we can see the network request even before typing
@@ -55,15 +56,33 @@ export function OffersPanel({ name, grade, imageUrl }: OffersPanelProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
+        {/** Controls */}
+        <div className="flex items-center gap-3 mb-2 text-xs">
+          <label className="inline-flex items-center gap-2 select-none cursor-pointer">
+            <input
+              type="checkbox"
+              className="h-3 w-3"
+              checked={hideDecals}
+              onChange={(e) => setHideDecals(e.target.checked)}
+            />
+            Hide decals
+          </label>
+        </div>
         {loading && <div className="text-sm text-muted-foreground">Looking up sample offers…</div>}
-        {!loading && (!offers || offers.length === 0) && (
+        {/** Apply filter before rendering and for empty-state */}
+        {(() => {
+          const filtered = (offers || []).filter(o => !hideDecals || !/decal/i.test(o.title));
+          if (loading) return null;
+          if (!offers || filtered.length === 0) {
+            return (
           <div className="text-sm text-muted-foreground">
             No offers found. Try a common name and grade, e.g. "Gundam Aerial" with grade "High Grade (HG)" for the sample data.
           </div>
-        )}
-        {!loading && offers && offers.length > 0 && (
+            );
+          }
+          return (
           <ul className="divide-y divide-border">
-            {offers.map((o, idx) => (
+            {filtered.map((o, idx) => (
               <li key={idx} className="py-2 flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="font-medium text-sm whitespace-normal break-words leading-snug">{o.title}</div>
@@ -84,7 +103,8 @@ export function OffersPanel({ name, grade, imageUrl }: OffersPanelProps) {
               </li>
             ))}
           </ul>
-        )}
+          );
+        })()}
       </CardContent>
     </Card>
   );
