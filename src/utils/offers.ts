@@ -154,6 +154,16 @@ export async function loadOffersIndex(): Promise<OffersIndex> {
   }
 }
 
+// Prefetch the offers index (no-op if already cached)
+export async function prefetchOffersIndex(): Promise<void> {
+  try { await loadOffersIndex(); } catch {}
+}
+
+// Clear the in-memory cache (use on logout)
+export function clearOffersCache(): void {
+  cache = {} as OffersIndex;
+}
+
 const STOP = new Set([
   'hg','rg','mg','pg','fm','sd','ms','eg','fg','hirm','mgsd','lm','hy2m',
   'hguc','hghguc',
