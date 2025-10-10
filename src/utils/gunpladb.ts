@@ -99,34 +99,8 @@ export async function searchGunplaImagesByKeywords(keywords: string[], grade?: s
     if ((e as Error).message !== 'SUPABASE_DISABLED') {
       console.warn('searchGunplaImagesByKeywords fallback due to error:', e);
     }
-    // Fallback: pattern-based guess from keywords when Supabase unavailable
-    // We cannot enumerate filenames without the DB; produce likely CDN URLs from tokens and grade
-    const gradeMap: Record<string, string[]> = {
-      'high grade (hg)': ['HG', 'HGUC', 'HGHGUC'],
-      'full mechanics (fm)': ['FM', 'Full-Mechanics', 'FullMechanics'],
-      'real grade (rg)': ['RG'],
-      'master grade (mg)': ['MG'],
-      'perfect grade (pg)': ['PG'],
-      'super deformed (sd)': ['SD'],
-      'mega size (ms)': ['MS'],
-      'no grade': ['NG'],
-      'other': ['HG','RG','MG']
-    };
-    const prefixes = grade ? (gradeMap[grade.toLowerCase()] || ['HG','RG','MG']) : ['HG','RG','MG','PG'];
-    const kw = lowerKeywords.map(k => k.toUpperCase());
-    const out = new Set<string>();
-    for (const p of prefixes) {
-      for (const k of kw) {
-        out.add(`https://cdn.gunpladb.net/${p}${k}.jpg`);
-        out.add(`https://cdn.gunpladb.net/${p}-${k}.jpg`);
-      }
-      if (kw.length > 1) {
-        const combined = kw.join('');
-        out.add(`https://cdn.gunpladb.net/${p}${combined}.jpg`);
-        out.add(`https://cdn.gunpladb.net/${p}-${combined}.jpg`);
-      }
-    }
-    return Array.from(out);
+    // No guessing; without Supabase, return empty.
+    return [];
   }
 }
 
@@ -207,99 +181,6 @@ export async function fetchGundamImages(
       // non-fatal; fall through to pattern guesses
       if ((e as Error).message !== 'SUPABASE_DISABLED') {
         console.warn('[gunpladb] Supabase lookup failed, falling back to pattern search', e);
-      }
-    }
-
-    // Grade → prefixes
-    const gradeMap: Record<string, string[]> = {
-      'High Grade (HG)': ['HG', 'HGUC', 'HGHGUC'],
-      'Full Mechanics (FM)': ['FM', 'Full-Mechanics', 'FullMechanics'],
-      'Real Grade (RG)': ['RG'],
-      'Master Grade (MG)': ['MG'],
-      'Perfect Grade (PG)': ['PG'],
-      'Super Deformed (SD)': ['SD'],
-      'No Grade': ['NG'],
-      'Other': ['HG', 'RG', 'MG']
-    };
-
-    const gradePrefixes = grade ? gradeMap[grade] || ['HG'] : ['HG', 'RG', 'MG', 'PG'];
-
-    // Generate possible URLs
-    const possibleUrls: string[] = [];
-    for (const gradePrefix of gradePrefixes) {
-      for (const keyword of keywords) {
-        const patterns = [
-          `${gradePrefix}${keyword.toUpperCase()}`,
-          `${gradePrefix}-${keyword.toUpperCase()}`,
-          `${gradePrefix}${keyword.charAt(0).toUpperCase() + keyword.slice(1)}`,
-          `${gradePrefix}UC-${keyword.toUpperCase()}`,
-          `${gradePrefix}IBO-${keyword.toUpperCase()}`,
-          `${gradePrefix}SEED-${keyword.toUpperCase()}`,
-          `${gradePrefix}00-${keyword.toUpperCase()}`,
-          `${gradePrefix}W-${keyword.toUpperCase()}`
-        ];
-
-        for (const pattern of patterns) {
-          possibleUrls.push(`https://cdn.gunpladb.net/${pattern}.jpg`);
-        }
-      }
-
-      // Try combined keywords
-      if (keywords.length > 1) {
-        const combinedKeyword = keywords.join('');
-        possibleUrls.push(`https://cdn.gunpladb.net/${gradePrefix}${combinedKeyword.toUpperCase()}.jpg`);
-        possibleUrls.push(`https://cdn.gunpladb.net/${gradePrefix}-${combinedKeyword.toUpperCase()}.jpg`);
-      }
-    }
-
-    // Deduplicate
-    const uniqueUrls = [...new Set(possibleUrls)];
-
-    // Validate URLs (limit 20 checks) - if series provided, prioritize URLs that contain any
-    // of the series tokens defined in SERIES_TOKEN_MAP for that series. This avoids
-    // accidental cross-matching on short substrings.
-    const validUrls: string[] = [];
-    const seen = new Set<string>();
-    let prioritized: string[] = uniqueUrls;
-    if (series) {
-      const wantedKey = Object.keys(SERIES_TOKEN_MAP).find(k => k.toLowerCase() === series.trim().toLowerCase());
-      const tokens = wantedKey ? (SERIES_TOKEN_MAP[wantedKey] || []) : [];
-      const normTokens = tokens.map(t => t.toLowerCase()).filter(Boolean);
-      if (normTokens.length > 0) {
-        const withSeries = uniqueUrls.filter(u => normTokens.some(t => u.toLowerCase().includes(t)));
-        const withoutSeries = uniqueUrls.filter(u => !normTokens.some(t => u.toLowerCase().includes(t)));
-        prioritized = [...withSeries, ...withoutSeries];
-      }
-    }
-
-    for (const url of prioritized) {
-      if (seen.has(url)) continue;
-      seen.add(url);
-      const isValid = await validateImageUrl(url);
-      if (isValid) validUrls.push(url);
-      if (validUrls.length >= 20) break;
-    }
-
-    if (validUrls.length > 0) {
-      return {
-        success: true,
-        imageUrl: validUrls[0],
-        imageOptions: validUrls
-      };
-    }
-
-    // Fallback patterns
-    const fallbackPatterns = [
-      `HGHGUC-${modelName.replace(/\s+/g, '').toUpperCase()}`,
-      `RG${modelName.replace(/\s+/g, '').toUpperCase()}`,
-      `MG${modelName.replace(/\s+/g, '').toUpperCase()}`
-    ];
-
-    for (const pattern of fallbackPatterns) {
-      const fallbackUrl = `https://cdn.gunpladb.net/${pattern}.jpg`;
-      const isValid = await validateImageUrl(fallbackUrl);
-      if (isValid) {
-        return { success: true, imageUrl: fallbackUrl };
       }
     }
 
