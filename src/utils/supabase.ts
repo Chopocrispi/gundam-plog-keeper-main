@@ -3,6 +3,12 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 let client: SupabaseClient | null = null;
 
+export function supabaseAvailable(): boolean {
+  const url = (import.meta as any).env?.VITE_SUPABASE_URL as string | undefined;
+  const anon = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY as string | undefined;
+  return Boolean(url && anon);
+}
+
 export function getSupabase(): SupabaseClient {
   if (client) return client;
   const url = (import.meta as any).env?.VITE_SUPABASE_URL as string | undefined;

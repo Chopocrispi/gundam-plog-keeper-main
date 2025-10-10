@@ -70,7 +70,7 @@ export async function loadOffersIndex(): Promise<OffersIndex> {
 }
 
 const STOP = new Set([
-  'hg','rg','mg','pg','fm','sd','ms',
+  'hg','rg','mg','pg','fm','sd','ms','eg','fg','hirm','mgsd','lm','hy2m',
   'hguc','hghguc',
   'high','real','master','perfect','full','mechanics','mega','size','super','deformed','grade',
   'gundam','mobile','suit','model','kit'
@@ -116,7 +116,8 @@ async function tokensFromImage(imageUrl?: string): Promise<string[]> {
   const fromFilename = tokenize(base);
   // Augment tokens with the human-friendly kit name fetched from Supabase by URL
   try {
-    const { getSupabase } = await import('@/utils/supabase');
+    const { supabaseAvailable, getSupabase } = await import('@/utils/supabase');
+    if (!supabaseAvailable()) throw new Error('SUPABASE_DISABLED');
     const supabase = getSupabase();
     const { data, error } = await supabase
       .from('gunpla_models')
@@ -129,7 +130,9 @@ async function tokensFromImage(imageUrl?: string): Promise<string[]> {
       return Array.from(uniq);
     }
   } catch (e) {
-    console.warn('[offers] supabase tokensFromImage error', e);
+    if ((e as Error).message !== 'SUPABASE_DISABLED') {
+      console.warn('[offers] supabase tokensFromImage error', e);
+    }
   }
   return fromFilename;
 }
@@ -149,7 +152,8 @@ async function kitNameFromImage(imageUrl?: string): Promise<string | undefined> 
   if (!filename) return undefined;
   // Prefer exact URL match in Supabase
   try {
-    const { getSupabase } = await import('@/utils/supabase');
+    const { supabaseAvailable, getSupabase } = await import('@/utils/supabase');
+    if (!supabaseAvailable()) throw new Error('SUPABASE_DISABLED');
     const supabase = getSupabase();
     const { data, error } = await supabase
       .from('gunpla_models')
@@ -157,10 +161,13 @@ async function kitNameFromImage(imageUrl?: string): Promise<string | undefined> 
       .eq('url', imageUrl)
       .maybeSingle();
     if (!error && data?.name) return String(data.name);
-  } catch {}
+  } catch (e) {
+    // ignore in absence of Supabase
+  }
   // Fallback: try matching by filename suffix
   try {
-    const { getSupabase } = await import('@/utils/supabase');
+    const { supabaseAvailable, getSupabase } = await import('@/utils/supabase');
+    if (!supabaseAvailable()) throw new Error('SUPABASE_DISABLED');
     const supabase = getSupabase();
     const { data } = await supabase
       .from('gunpla_models')
