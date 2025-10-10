@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import GoogleLoginButton from '@/components/GoogleLoginButton';
 import { useAuth } from '@/hooks/use-auth';
 import supabase from '@/lib/supabase';
+import { prefetchOffersIndex, clearOffersCache } from '@/utils/offers';
 import { loadModels as dbLoadModels, insertModel as dbInsertModel, updateModel as dbUpdateModel, deleteModel as dbDeleteModel } from '@/utils/models';
 
 const Index = () => {
@@ -37,6 +38,8 @@ const Index = () => {
     (async () => {
       if (signedIn && user) {
         try {
+          // Warm the offers index immediately after login so cards can compute averages
+          await prefetchOffersIndex();
           const mapped = await dbLoadModels(user.sub);
           setModels(mapped);
           setFilteredModels(mapped);
@@ -46,6 +49,7 @@ const Index = () => {
         }
       } else {
         // When not signed in, do not show any kits (privacy/require-login)
+        clearOffersCache();
         setModels([]);
         setFilteredModels([]);
       }
