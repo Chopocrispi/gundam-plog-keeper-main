@@ -12,7 +12,7 @@ type Props = {
 };
 
 export default function AuthDialog({ open, onOpenChange }: Props) {
-  const { signIn, signInWithEmail, signInWithEmailPassword, signUpWithEmailPassword } = useAuth();
+  const { signIn, signInWithEmailPassword, signUpWithEmailPassword } = useAuth();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [name, setName] = React.useState('');
@@ -50,18 +50,6 @@ export default function AuthDialog({ open, onOpenChange }: Props) {
                 className="w-full"
               >
                 {busy ? 'Signing in…' : 'Sign in'}
-              </Button>
-              <div className="text-xs text-muted-foreground text-center">or</div>
-              <Button
-                variant="secondary"
-                disabled={!email || busy}
-                onClick={async () => {
-                  setBusy(true);
-                  try { await signInWithEmail(email); onOpenChange(false); } finally { setBusy(false); }
-                }}
-                className="w-full"
-              >
-                {busy ? 'Sending…' : 'Send magic link'}
               </Button>
               <div className="h-px bg-border my-1" />
               <Button onClick={() => signIn('google')} className="w-full">Continue with Google</Button>

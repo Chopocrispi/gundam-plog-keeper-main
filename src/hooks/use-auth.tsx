@@ -14,7 +14,6 @@ type AuthContextValue = {
   user: User | null;
   signedIn: boolean;
   signIn: (provider?: 'google' | 'discord') => void;
-  signInWithEmail: (email: string) => Promise<void>;
   signInWithEmailPassword: (email: string, password: string) => Promise<void>;
   signUpWithEmailPassword: (args: { email: string; password: string; name?: string }) => Promise<void>;
   signOut: () => void;
@@ -166,16 +165,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, signedIn: !!user, signIn, signInWithEmail: async (email: string) => {
-      try {
-        const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
-        const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
-        if (error) throw error;
-        toast({ title: 'Check your inbox', description: 'We sent you a login link. Open it to finish signing in.' });
-      } catch (e: any) {
-        toast({ title: 'Email sign-in failed', description: e?.message || 'Unable to send magic link.' });
-      }
-    },
+    <AuthContext.Provider value={{ user, signedIn: !!user, signIn,
     signInWithEmailPassword: async (email: string, password: string) => {
       try {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
