@@ -326,6 +326,7 @@ export async function findOffersForModel(name: string, grade?: GundamGrade, opts
   const resolvedName = await kitNameFromImage(opts?.imageUrl);
   const effectiveName = resolvedName || name;
   const q = normalize(`${gradeAbbr(grade)} ${effectiveName}`.trim());
+  const queryTokens = tokenize(effectiveName); // base name tokens only for strict comparison
   // eslint-disable-next-line no-console
   console.log('[offers] query:', q, { effectiveName, providedName: name });
   // direct key match first
@@ -346,6 +347,17 @@ export async function findOffersForModel(name: string, grade?: GundamGrade, opts
   offers = (offers || []).filter(o => typeof o.price === 'number' && o.price > 0);
   // Apply accuracy filters: match selected grade markers and exclude figure lines
   offers = offers.filter(o => matchesSelectedGrade(o.title, grade) && !isNonModelLine(o.title));
+  // Filter out titles that introduce disallowed extra words not present in the query
+  const qset = new Set(queryTokens);
+  const allowedExtra = (t: string) => t.length <= 3 || /\d/.test(t);
+  const titleOk = (title: string) => {
+    const tks = tokenize(title);
+    for (const t of tks) {
+      if (!qset.has(t) && !allowedExtra(t)) return false;
+    }
+    return true;
+  };
+  offers = offers.filter(o => titleOk(o.title));
 
   // If still nothing from static index, try live endpoint
   if (!offers || offers.length === 0) {
@@ -354,7 +366,8 @@ export async function findOffersForModel(name: string, grade?: GundamGrade, opts
       if (live.length > 0) {
         offers = live
           .filter(o => typeof o.price === 'number' && o.price > 0)
-          .filter(o => matchesSelectedGrade(o.title, grade) && !isNonModelLine(o.title));
+          .filter(o => matchesSelectedGrade(o.title, grade) && !isNonModelLine(o.title))
+          .filter(o => titleOk(o.title));
       }
     } catch (e) {
       console.warn('[offers] live fetch failed', e);
@@ -376,7 +389,7 @@ export async function findOffersForModel(name: string, grade?: GundamGrade, opts
     }
   }
   return Array.from(seen.values())
-    .filter(o => o.price > 0 && matchesSelectedGrade(o.title, grade) && !isNonModelLine(o.title))
+    .filter(o => o.price > 0 && matchesSelectedGrade(o.title, grade) && !isNonModelLine(o.title) && titleOk(o.title))
     .sort((a, b) => a.price - b.price);
 }
 
