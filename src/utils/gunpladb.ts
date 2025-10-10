@@ -202,7 +202,7 @@ export async function fetchGundamImages(
           return {
             success: true,
             imageUrl: urls[0],
-            imageOptions: Array.from(new Set(urls)).slice(0, 20),
+            imageOptions: Array.from(new Set(urls)),
           };
         }
       }
