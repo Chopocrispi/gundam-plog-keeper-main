@@ -9,6 +9,7 @@ interface GundamCardProps {
   model: GundamModel;
   onEdit: (model: GundamModel) => void;
   onDelete: (id: string) => void;
+  onOffers?: (model: GundamModel) => void;
 }
 
 const statusColors = {
@@ -19,7 +20,7 @@ const statusColors = {
   'Customized': 'bg-primary text-primary-foreground',
 };
 
-export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
+export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProps) {
   const renderStars = () => {
     if (!model.rating) return null;
     
@@ -106,6 +107,15 @@ export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
       </CardContent>
       
       <CardFooter className="p-4 pt-0 flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onOffers?.(model)}
+          className="flex-1 hover:bg-accent hover:text-accent-foreground transition-colors"
+        >
+          <DollarSign className="h-4 w-4 mr-1" />
+          Offers
+        </Button>
         <Button
           variant="outline"
           size="sm"
