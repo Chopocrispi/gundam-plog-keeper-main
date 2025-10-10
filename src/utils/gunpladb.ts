@@ -15,6 +15,13 @@ const SERIES_TOKEN_MAP: Record<string, string[]> = {
   'OTHER': []
 };
 
+const CDN_BASE = 'https://cdn.gunpladb.net/';
+function toCdnUrl(pathOrUrl: string): string {
+  if (!pathOrUrl) return pathOrUrl;
+  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+  return CDN_BASE + pathOrUrl.replace(/^\/+/, '');
+}
+
 export function inferSeriesFromFilename(filename: string): string | undefined {
   const ln = filename.toLowerCase();
   for (const [series, tokens] of Object.entries(SERIES_TOKEN_MAP)) {
@@ -94,7 +101,7 @@ export async function searchGunplaImagesByKeywords(keywords: string[], grade?: s
         return s.toLowerCase() === want;
       });
     }
-    return rows.map(r => r.url);
+    return rows.map(r => toCdnUrl(r.url));
   } catch (e) {
     if ((e as Error).message !== 'SUPABASE_DISABLED') {
       console.warn('searchGunplaImagesByKeywords fallback due to error:', e);
@@ -168,7 +175,7 @@ export async function fetchGundamImages(
             return s.toLowerCase() === want;
           });
         }
-        const urls = rows.map(r => r.url);
+        const urls = rows.map(r => toCdnUrl(r.url));
         if (urls.length > 0) {
           return {
             success: true,
