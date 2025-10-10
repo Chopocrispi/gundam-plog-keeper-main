@@ -79,12 +79,14 @@ function titleHasMarker(title: string, key: keyof typeof GRADE_MARKERS): boolean
 function matchesSelectedGrade(title: string, grade?: GundamGrade): boolean {
   const key = normalizeGradeKey(grade);
   if (!key) return true; // no grade filter
-  // If the selected grade marker is present, it's a match.
-  if (titleHasMarker(title, key)) return true;
-  // Otherwise, allow it as long as no conflicting grade marker is detected.
+  // Require the selected grade marker, if we can detect it
+  if (!titleHasMarker(title, key)) return false;
+  // Exclude titles that clearly indicate a conflicting grade
   for (const k of Object.keys(GRADE_MARKERS) as (keyof typeof GRADE_MARKERS)[]) {
     if (k === key) continue;
-    if (titleHasMarker(title, k)) return false;
+    if (titleHasMarker(title, k)) {
+      return false;
+    }
   }
   return true;
 }
