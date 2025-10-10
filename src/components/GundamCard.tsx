@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Star, Edit, Trash2, Calendar, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect, useMemo, useState } from 'react';
-import { findStaticOffersForModel } from '@/utils/offers';
+import { findStaticOffersForModel, onOffersCacheUpdate, offersCacheKey, getCachedOffers } from '@/utils/offers';
 
 interface GundamCardProps {
   model: GundamModel;
@@ -30,7 +30,12 @@ export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProp
     (async () => {
       try {
         // Use static index to keep this lightweight; average rounded prices in USD only
-        const offers = await findStaticOffersForModel(model.name, model.grade as any, { imageUrl: model.imageUrl });
+        // Prefer cached live offers if available, else static lookup
+        const key = offersCacheKey(model.name, model.grade as any, model.imageUrl);
+        const cached = getCachedOffers(key);
+        const offers = cached && cached.length > 0
+          ? cached
+          : await findStaticOffersForModel(model.name, model.grade as any, { imageUrl: model.imageUrl });
         if (cancelled) return;
         const usdPrices = offers.filter(o => (o.currency || 'USD').toUpperCase() === 'USD').map(o => Math.round(o.price));
         if (usdPrices.length === 0) {
@@ -44,6 +49,23 @@ export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProp
       }
     })();
     return () => { cancelled = true; };
+  }, [model.name, model.grade, model.imageUrl]);
+
+  // React to background cache updates (from login prefetch) and recompute
+  useEffect(() => {
+    const key = offersCacheKey(model.name, model.grade as any, model.imageUrl);
+    const off = onOffersCacheUpdate((changed) => {
+      if (changed !== key) return;
+      const offers = getCachedOffers(key) || [];
+      const usdPrices = offers.filter(o => (o.currency || 'USD').toUpperCase() === 'USD').map(o => Math.round(o.price));
+      if (usdPrices.length === 0) {
+        setAvgUsd(null);
+        return;
+      }
+      const avg = usdPrices.reduce((a, b) => a + b, 0) / usdPrices.length;
+      setAvgUsd(Math.round(avg));
+    });
+    return () => { off(); };
   }, [model.name, model.grade, model.imageUrl]);
   const renderStars = () => {
     if (!model.rating) return null;

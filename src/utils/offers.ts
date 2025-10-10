@@ -4,6 +4,54 @@ import type { Offer, OffersIndex, GundamGrade } from '@/types/gundam';
 // Later this can be swapped for a real API that serves fresh scraped prices.
 
 let cache: OffersIndex | null = null;
+// Per-kit offers cache (live or static-derived) keyed by a normalized query key
+let offersCache: Record<string, Offer[]> = {};
+type CacheListener = (key: string) => void;
+const listeners = new Set<CacheListener>();
+
+function tryLoadOffersCacheFromSession() {
+  try {
+    const raw = sessionStorage.getItem('offersCache');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') offersCache = parsed as Record<string, Offer[]>;
+    }
+  } catch {}
+}
+
+function persistOffersCacheToSession() {
+  try { sessionStorage.setItem('offersCache', JSON.stringify(offersCache)); } catch {}
+}
+
+// initialize cache from session on module load
+tryLoadOffersCacheFromSession();
+
+export function offersCacheKey(name: string, grade?: GundamGrade, imageUrl?: string): string {
+  // Keep key short and stable; image filename adds a bit of disambiguation when available
+  let img = '';
+  if (imageUrl) {
+    try { const u = new URL(imageUrl); img = u.pathname.split('/').pop() || ''; } catch { img = (imageUrl.split('/').pop() || ''); }
+  }
+  const base = normalize(`${gradeAbbr(grade)} ${name}`.trim());
+  return img ? `${base}::${img}` : base;
+}
+
+export function getCachedOffers(key: string): Offer[] | undefined {
+  return offersCache[key];
+}
+
+function setCachedOffers(key: string, offers: Offer[]) {
+  offersCache[key] = offers;
+  persistOffersCacheToSession();
+  for (const fn of listeners) {
+    try { fn(key); } catch {}
+  }
+}
+
+export function onOffersCacheUpdate(listener: CacheListener): () => void {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
 
 const CDN_BASE = 'https://cdn.gunpladb.net/';
 function stripCdnBase(u: string): string {
@@ -162,6 +210,8 @@ export async function prefetchOffersIndex(): Promise<void> {
 // Clear the in-memory cache (use on logout)
 export function clearOffersCache(): void {
   cache = {} as OffersIndex;
+  offersCache = {};
+  persistOffersCacheToSession();
 }
 
 const STOP = new Set([
@@ -457,4 +507,31 @@ export async function findStaticOffersForModel(name: string, grade?: GundamGrade
   return Array.from(seen.values())
     .filter(o => !isDecal(o.title))
     .sort((a, b) => a.price - b.price);
+}
+
+// Prefetch live offers for a single kit and cache them
+export async function prefetchOffers(name: string, grade?: GundamGrade, opts?: { imageUrl?: string }): Promise<void> {
+  const key = offersCacheKey(name, grade, opts?.imageUrl);
+  if (offersCache[key] && offersCache[key].length > 0) return; // already cached
+  try {
+    const offers = await findOffersForModel(name, grade, opts);
+    if (offers && offers.length > 0) setCachedOffers(key, offers);
+  } catch {}
+}
+
+// Prefetch in batch with simple concurrency limit
+export async function prefetchOffersBatch(items: Array<{ name: string; grade?: GundamGrade; imageUrl?: string }>, concurrency = 4): Promise<void> {
+  const queue = items.slice();
+  const workers = Array.from({ length: Math.max(1, concurrency) }, async () => {
+    while (queue.length) {
+      const current = queue.shift();
+      if (!current) break;
+      const key = offersCacheKey(current.name, current.grade, current.imageUrl);
+      if (offersCache[key] && offersCache[key].length > 0) continue;
+      try { await prefetchOffers(current.name, current.grade, { imageUrl: current.imageUrl }); } catch {}
+      // small gap to be gentle
+      await new Promise(r => setTimeout(r, 100));
+    }
+  });
+  await Promise.all(workers);
 }
