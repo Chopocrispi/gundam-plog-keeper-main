@@ -54,7 +54,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
 
   // ...existing code...
 
-  const handleManualImageSearch = useCallback(async () => {
+  const handleManualImageSearch = useCallback(async (opts?: { autoOpen?: boolean }) => {
     const mySearchId = ++latestSearchRef.current;
     if (!formData.name.trim()) {
       // silently ignore if name is empty
@@ -67,8 +67,12 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
     const result = await fetchGundamImages(formData.name, formData.grade as GundamGrade);
       if (mySearchId !== latestSearchRef.current) return; // stale
       if (result.success && result.imageOptions && result.imageOptions.length > 0) {
-        // Do not auto-select or auto-open; just populate options
+        // Populate options; optionally auto-open grid on background lookups
         setImageOptions(result.imageOptions);
+        if (opts?.autoOpen) {
+          setShowImageSelector(true);
+        }
+        if (mySearchId === latestSearchRef.current) setIsSearchingImage(false);
         return;
       }
 
@@ -90,16 +94,21 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
   const urls = await searchGunplaImagesByKeywords(keywords, formData.grade);
       if (mySearchId !== latestSearchRef.current) return; // stale
       if (urls.length > 0) {
-        // Do not auto-select or auto-open; just populate options
+        // Populate options; optionally auto-open grid on background lookups
         setImageOptions(urls);
+        if (opts?.autoOpen) {
+          setShowImageSelector(true);
+        }
       } else {
         // no toast on not found
       }
+      if (mySearchId === latestSearchRef.current) setIsSearchingImage(false);
     } catch (error) {
       // no toast on error; fail silently
       console.error('Manual image search error:', error);
+      if (mySearchId === latestSearchRef.current) setIsSearchingImage(false);
     }
-    // Only clear searching state if this is still the latest search
+    // Only clear searching state if this is still the latest search (fallback safety)
     if (mySearchId === latestSearchRef.current) setIsSearchingImage(false);
   }, [formData, toast]);
 
@@ -108,7 +117,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
     const name = formData.name.trim();
     if (!name) return;
     const handle = setTimeout(() => {
-      void handleManualImageSearch();
+      void handleManualImageSearch({ autoOpen: true });
     }, 600);
     return () => clearTimeout(handle);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -203,9 +212,9 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
             onClick={async () => {
               // If we don't have options yet and have a name, search first
               if (!isSearchingImage && imageOptions.length === 0 && formData.name.trim()) {
-                await handleManualImageSearch();
+                await handleManualImageSearch({ autoOpen: false });
               }
-              setShowImageSelector(prev => !prev);
+              setShowImageSelector(true);
             }}
           >
             <Grid />
