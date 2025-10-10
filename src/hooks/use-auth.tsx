@@ -57,6 +57,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           try {
             const migratedKey = `gundam:migrated:${u.id}`;
             if (!localStorage.getItem(migratedKey)) {
+              // If the user already has any rows in the DB, skip migration and mark migrated
+              const { count, error: countError } = await supabase
+                .from('models')
+                .select('id', { count: 'exact', head: true })
+                .eq('user_id', u.id);
+              if (!countError && (count ?? 0) > 0) {
+                localStorage.setItem(migratedKey, '1');
+                return;
+              }
               const raw = localStorage.getItem('gundam-models');
               if (raw) {
                 const parsed: GundamModel[] = JSON.parse(raw);
@@ -82,6 +91,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const { error } = await supabase.from('models').upsert(toInsert, { onConflict: 'id' });
                 if (!error) {
                   localStorage.setItem(migratedKey, '1');
+                  // Clear local cache after successful migration to avoid future re-imports
+                  try { localStorage.removeItem('gundam-models'); } catch (e) {}
                 } else {
                   console.warn('Failed to migrate local models to Supabase', error);
                 }
@@ -114,19 +125,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // on mount, try to hydrate user from server session
   useEffect(() => {
+    // Avoid overriding Supabase session; only hydrate from /api/me if we don't already have a user
+    if (user) return;
     (async () => {
       try {
         const r = await fetch('/api/me', { credentials: 'include' });
         if (r.ok) {
           const j = await r.json();
-          if (j?.user) {
+          if (j?.user && !user) {
             setUser({ sub: j.user.id, email: j.user.email, name: j.user.displayName, picture: j.user.avatarUrl });
             try { localStorage.setItem(STORAGE_KEY, JSON.stringify(j.user)); } catch (e) {}
           }
         }
       } catch (e) {}
     })();
-  }, []);
+  }, [user]);
 
   const signIn = () => {
     // Use Supabase OAuth for Google sign-in if configured
