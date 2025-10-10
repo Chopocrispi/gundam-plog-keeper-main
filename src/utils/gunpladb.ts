@@ -60,7 +60,7 @@ export async function searchGunplaImagesByKeywords(keywords: string[], grade?: s
   try {
     const { supabaseAvailable, getSupabase } = await import('@/utils/supabase');
     if (!supabaseAvailable()) throw new Error('SUPABASE_DISABLED');
-    const supabase = getSupabase();
+  const supabase = getSupabase();
 
     // Build ANDed filters: grade = code (if provided) and name ILIKE for each token
     const toCode = (g?: string) => {
@@ -85,14 +85,24 @@ export async function searchGunplaImagesByKeywords(keywords: string[], grade?: s
     const gradeCode = toCode(grade);
 
     let q = supabase.from('gunpla_models').select('url,name,grade');
-    if (gradeCode) q = q.eq('grade', gradeCode);
+    if (gradeCode) q = q.ilike('grade', gradeCode);
     for (const t of lowerKeywords) q = q.ilike('name', `%${t}%`);
-    const { data, error } = await q;
+    console.info('[gunpladb][supabase] image search', { grade, gradeCode, tokens: lowerKeywords });
+    let { data, error } = await q;
     if (error) {
       console.warn('[supabase] search error', error);
       return [];
     }
     let rows = (data || []) as Array<{ url: string; name: string; grade: string }>;
+    console.info('[gunpladb][supabase] image search rows', rows.length);
+    if (rows.length === 0 && gradeCode) {
+      // retry without grade filter
+      console.info('[gunpladb][supabase] retry image search without grade filter');
+      let q2 = supabase.from('gunpla_models').select('url,name,grade');
+      for (const t of lowerKeywords) q2 = q2.ilike('name', `%${t}%`);
+      const r2 = await q2;
+      if (!r2.error) rows = (r2.data || []) as Array<{ url: string; name: string; grade: string }>;    
+    }
     if (series) {
       const want = series.trim().toLowerCase();
       rows = rows.filter(r => {
@@ -105,6 +115,9 @@ export async function searchGunplaImagesByKeywords(keywords: string[], grade?: s
   } catch (e) {
     if ((e as Error).message !== 'SUPABASE_DISABLED') {
       console.warn('searchGunplaImagesByKeywords fallback due to error:', e);
+    }
+    if ((e as Error).message === 'SUPABASE_DISABLED') {
+      console.warn('[gunpladb] Supabase env not configured; image search disabled');
     }
     // No guessing; without Supabase, return empty.
     return [];
@@ -136,9 +149,9 @@ export async function fetchGundamImages(
 
     // First, try Supabase table lookup for exact images
     try {
-      const { supabaseAvailable, getSupabase } = await import('@/utils/supabase');
+    const { supabaseAvailable, getSupabase } = await import('@/utils/supabase');
       if (!supabaseAvailable()) throw new Error('SUPABASE_DISABLED');
-      const supabase = getSupabase();
+  const supabase = getSupabase();
 
       const toCode = (g?: string) => {
         if (!g) return undefined;
@@ -162,11 +175,20 @@ export async function fetchGundamImages(
       const gradeCode = toCode(grade);
 
       let q = supabase.from('gunpla_models').select('url,name,grade');
-      if (gradeCode) q = q.eq('grade', gradeCode);
+      if (gradeCode) q = q.ilike('grade', gradeCode);
       for (const t of keywords) q = q.ilike('name', `%${t}%`);
-      const { data, error } = await q;
+      console.info('[gunpladb][supabase] fetch images', { modelName, grade, gradeCode, tokens: keywords });
+      let { data, error } = await q;
       if (!error) {
         let rows = (data || []) as Array<{ url: string; name: string; grade: string }>;
+        console.info('[gunpladb][supabase] fetch images rows', rows.length);
+        if (rows.length === 0 && gradeCode) {
+          console.info('[gunpladb][supabase] retry fetch images without grade filter');
+          let q2 = supabase.from('gunpla_models').select('url,name,grade');
+          for (const t of keywords) q2 = q2.ilike('name', `%${t}%`);
+          const r2 = await q2;
+          if (!r2.error) rows = (r2.data || []) as Array<{ url: string; name: string; grade: string }>;
+        }
         if (series) {
           const want = series.trim().toLowerCase();
           rows = rows.filter(r => {
