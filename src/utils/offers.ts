@@ -319,62 +319,43 @@ function pickByTokens(idx: OffersIndex, tokens: string[]): Offer[] {
 }
 
 export async function findOffersForModel(name: string, grade?: GundamGrade, opts?: { extraTerms?: string[]; imageUrl?: string }): Promise<Offer[]> {
-  const idx = await loadOffersIndex();
+  // Resolve the most specific human title we can (prefer Supabase name by image),
+  // then query the live API FIRST using that exact title to maximize store coverage.
   const imgTokens = await tokensFromImage(opts?.imageUrl || '');
-  const extra = (opts?.extraTerms || []).concat(imgTokens);
-  const extraStr = extra.join(' ');
-  const resolvedName = await kitNameFromImage(opts?.imageUrl);
-  const effectiveName = resolvedName || name;
-  const q = normalize(`${gradeAbbr(grade)} ${effectiveName}`.trim());
-  const queryTokens = tokenize(effectiveName); // base name tokens only for strict comparison
+  // Use the provided title directly for the real search; do not replace it with DB-derived names
+  const effectiveName = name;
   // eslint-disable-next-line no-console
-  console.log('[offers] query:', q, { effectiveName, providedName: name });
-  // direct key match first
-  let offers = idx[q];
-  if (!offers || offers.length === 0) {
-    // Try with extra terms from image/name tokens
-    const combo1 = normalize(`${gradeAbbr(grade)} ${effectiveName} ${extraStr}`.trim());
-    const combo2 = normalize(`${effectiveName} ${extraStr}`.trim());
-    const tokens1 = tokenize(combo1);
-    const tokens2 = tokenize(combo2);
-    // eslint-disable-next-line no-console
-    console.log('[offers] token search with', { tokens1, tokens2 });
-    const byTokens = pickByTokens(idx, tokens1.length ? tokens1 : tokens2);
-    offers = byTokens;
+  console.log('[offers] live-first query:', { effectiveName, providedName: name, grade });
+
+  let offers: Offer[] = [];
+  try {
+    const live = await fetchLiveOffers(effectiveName, grade);
+    if (live.length > 0) {
+      offers = live
+        .filter(o => typeof o.price === 'number' && o.price > 0)
+        .filter(o => matchesSelectedGrade(o.title, grade) && !isNonModelLine(o.title));
+    }
+  } catch (e) {
+    console.warn('[offers] live fetch failed', e);
   }
 
-  // Remove zero/negative priced offers early
-  offers = (offers || []).filter(o => typeof o.price === 'number' && o.price > 0);
-  // Apply accuracy filters: match selected grade markers and exclude figure lines
-  offers = offers.filter(o => matchesSelectedGrade(o.title, grade) && !isNonModelLine(o.title));
-  // Filter out titles that introduce disallowed extra words not present in the query
-  const qset = new Set(queryTokens);
-  const allowedExtra = (t: string) => t.length <= 3 || /\d/.test(t);
-  const titleOk = (title: string) => {
-    const tks = tokenize(title);
-    for (const t of tks) {
-      if (!qset.has(t) && !allowedExtra(t)) return false;
-    }
-    return true;
-  };
-  offers = offers.filter(o => titleOk(o.title));
-
-  // If still nothing from static index, try live endpoint
+  // If live came back empty, fall back to the static index (direct key, then a loose token match)
   if (!offers || offers.length === 0) {
-    try {
-      const live = await fetchLiveOffers(effectiveName, grade);
-      if (live.length > 0) {
-        offers = live
-          .filter(o => typeof o.price === 'number' && o.price > 0)
-          .filter(o => matchesSelectedGrade(o.title, grade) && !isNonModelLine(o.title))
-          .filter(o => titleOk(o.title));
-      }
-    } catch (e) {
-      console.warn('[offers] live fetch failed', e);
+    const idx = await loadOffersIndex();
+    const q = normalize(`${gradeAbbr(grade)} ${effectiveName}`.trim());
+    let staticOffers = idx[q] || [];
+    if (!staticOffers || staticOffers.length === 0) {
+      const extra = (opts?.extraTerms || []).concat(imgTokens);
+      const combo = normalize(`${gradeAbbr(grade)} ${effectiveName} ${extra.join(' ')}`.trim());
+      const byTokens = pickByTokens(idx, tokenize(combo));
+      staticOffers = byTokens;
     }
+    offers = (staticOffers || [])
+      .filter(o => typeof o.price === 'number' && o.price > 0)
+      .filter(o => matchesSelectedGrade(o.title, grade) && !isNonModelLine(o.title));
   }
 
-  // dedupe by store hostname and sort by price asc
+  // Dedupe by hostname and sort by price ascending
   const seen = new Map<string, Offer>();
   for (const o of offers) {
     try {
@@ -382,15 +363,12 @@ export async function findOffersForModel(name: string, grade?: GundamGrade, opts
       const prev = seen.get(host);
       if (!prev || o.price < prev.price) seen.set(host, o);
     } catch {
-      // if URL parsing fails, fallback to store string
       const key = o.store.toLowerCase();
       const prev = seen.get(key);
       if (!prev || o.price < prev.price) seen.set(key, o);
     }
   }
-  return Array.from(seen.values())
-    .filter(o => o.price > 0 && matchesSelectedGrade(o.title, grade) && !isNonModelLine(o.title) && titleOk(o.title))
-    .sort((a, b) => a.price - b.price);
+  return Array.from(seen.values()).sort((a, b) => a.price - b.price);
 }
 
 async function fetchLiveOffers(name: string, grade?: GundamGrade): Promise<Offer[]> {
