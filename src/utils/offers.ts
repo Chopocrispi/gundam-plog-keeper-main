@@ -32,6 +32,80 @@ function gradeAbbr(grade?: GundamGrade) {
   return '';
 }
 
+// Heuristics to detect grades from offer titles
+const GRADE_MARKERS: Record<string, RegExp[]> = {
+  hg: [
+    /\bhigh\s*grade\b/i,
+    /\bhg(?:\b|[A-Z])/i, // HG, HGUC, HGG, etc.
+  ],
+  rg: [/\breal\s*grade\b/i, /\brg\b/i],
+  mg: [/\bmaster\s*grade\b/i, /\bmg\b/i],
+  pg: [/\bperfect\s*grade\b/i, /\bpg\b/i],
+  fm: [/\bfull\s*mechanics\b/i, /\bfm\b/i],
+  sd: [/\bsuper\s*deformed\b/i, /\bsd\b/i, /\bMGSD\b/i],
+  mgsd: [/\bMGSD\b/i],
+  eg: [/\bentry\s*grade\b/i, /\beg\b/i],
+  fg: [/\bfirst\s*grade\b/i, /\bfg\b/i],
+  hirm: [/\bhigh\s*resolution\s*model\b/i, /\bhirm\b/i],
+  ms: [/\bmega\s*size\b/i],
+  lm: [/\blimited\s*model\b/i],
+  hy2m: [/\bhy2m\b/i],
+};
+
+function normalizeGradeKey(g?: GundamGrade): keyof typeof GRADE_MARKERS | undefined {
+  if (!g) return undefined;
+  const s = g.toLowerCase();
+  if (s.includes('high grade')) return 'hg';
+  if (s.includes('real grade')) return 'rg';
+  if (s.includes('master grade')) return 'mg';
+  if (s.includes('perfect grade')) return 'pg';
+  if (s.includes('full mechanics')) return 'fm';
+  if (s.includes('super deformed')) return 'sd';
+  if (s.includes('mgsd')) return 'mgsd';
+  if (s.includes('entry grade')) return 'eg';
+  if (s.includes('first grade')) return 'fg';
+  if (s.includes('high resolution')) return 'hirm';
+  if (s.includes('mega size')) return 'ms';
+  if (s.includes('limited model')) return 'lm';
+  if (s.includes('hy2m')) return 'hy2m';
+  return undefined;
+}
+
+function titleHasMarker(title: string, key: keyof typeof GRADE_MARKERS): boolean {
+  const patterns = GRADE_MARKERS[key] || [];
+  return patterns.some(re => re.test(title));
+}
+
+function matchesSelectedGrade(title: string, grade?: GundamGrade): boolean {
+  const key = normalizeGradeKey(grade);
+  if (!key) return true; // no grade filter
+  // Require the selected grade marker, if we can detect it
+  if (!titleHasMarker(title, key)) return false;
+  // Exclude titles that clearly indicate a conflicting grade
+  for (const k of Object.keys(GRADE_MARKERS) as (keyof typeof GRADE_MARKERS)[]) {
+    if (k === key) continue;
+    if (titleHasMarker(title, k)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Exclude non-model product lines (figures, etc.)
+function isNonModelLine(title: string): boolean {
+  const bad = [
+    /robot\s*(damashii|spirits)/i,
+    /tamashii\s*nations/i,
+    /metal\s*build/i,
+    /chogokin/i,
+    /figure[-\s]*rise/i,
+    /sh\s*figuarts/i,
+    /nx\s*edge/i,
+    /converge/i,
+  ];
+  return bad.some(re => re.test(title));
+}
+
 export async function loadOffersIndex(): Promise<OffersIndex> {
   // If we already have a non-empty cache, use it
   if (cache && Object.keys(cache).length > 0) return cache;
@@ -98,6 +172,8 @@ function tokenize(s: string): string[] {
     if (t.length <= 1) return false;
     // drop pure numbers (like 097)
     if (/^\d+$/.test(t)) return false;
+    // drop noisy tokens like 'hggs' 'hghggseed' that are grade prefixes glued to other letters
+    if (/^(hg|rg|mg|pg|fm|sd)[a-z]{2,}$/.test(t)) return false;
     return true;
   });
   // unique preserve order
@@ -210,14 +286,26 @@ function pickByTokens(idx: OffersIndex, tokens: string[]): Offer[] {
   if (!tokens.length) return [];
   const results: Offer[] = [];
   const seen = new Set<string>();
+  // Strengthen threshold: if we have many tokens, require more to match
+  const needed = tokens.length >= 6 ? 4 : tokens.length >= 4 ? 3 : Math.min(2, tokens.length);
+  // Anchor pairs to enforce when present in the query tokens
+  const anchorPairs: Array<[string, string]> = [
+    ['astray', 'frame'],
+  ];
   for (const [key, offers] of Object.entries(idx)) {
     const k = normalize(key);
     let matched = 0;
     for (const t of tokens) {
       if (k.includes(t)) matched++;
     }
-    const needed = Math.min(3, tokens.length);
-    if (matched >= needed) {
+    // If anchors are present in the query, require they exist in the key
+    const anchorsOk = anchorPairs.every(([a, b]) => {
+      if (tokens.includes(a) && tokens.includes(b)) {
+        return k.includes(a) && k.includes(b);
+      }
+      return true;
+    });
+    if (matched >= needed && anchorsOk) {
       for (const o of offers) {
         const sig = `${o.store}|${o.url}`;
         if (!seen.has(sig)) {
@@ -256,13 +344,17 @@ export async function findOffersForModel(name: string, grade?: GundamGrade, opts
 
   // Remove zero/negative priced offers early
   offers = (offers || []).filter(o => typeof o.price === 'number' && o.price > 0);
+  // Apply accuracy filters: match selected grade markers and exclude figure lines
+  offers = offers.filter(o => matchesSelectedGrade(o.title, grade) && !isNonModelLine(o.title));
 
   // If still nothing from static index, try live endpoint
   if (!offers || offers.length === 0) {
     try {
       const live = await fetchLiveOffers(effectiveName, grade);
       if (live.length > 0) {
-        offers = live.filter(o => typeof o.price === 'number' && o.price > 0);
+        offers = live
+          .filter(o => typeof o.price === 'number' && o.price > 0)
+          .filter(o => matchesSelectedGrade(o.title, grade) && !isNonModelLine(o.title));
       }
     } catch (e) {
       console.warn('[offers] live fetch failed', e);
@@ -284,7 +376,7 @@ export async function findOffersForModel(name: string, grade?: GundamGrade, opts
     }
   }
   return Array.from(seen.values())
-    .filter(o => o.price > 0)
+    .filter(o => o.price > 0 && matchesSelectedGrade(o.title, grade) && !isNonModelLine(o.title))
     .sort((a, b) => a.price - b.price);
 }
 
