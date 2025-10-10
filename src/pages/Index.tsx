@@ -14,6 +14,7 @@ import { Plus, Search, Grid, List, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import GoogleLoginButton from '@/components/GoogleLoginButton';
 import DiscordLoginButton from '@/components/DiscordLoginButton';
+import AuthDialog from '@/components/AuthDialog';
 import { useAuth } from '@/hooks/use-auth';
 import supabase from '@/lib/supabase';
 import { prefetchOffersIndex, clearOffersCache, prefetchOffersBatch } from '@/utils/offers';
@@ -33,6 +34,7 @@ const Index = () => {
   const [editingModel, setEditingModel] = useState<GundamModel | undefined>();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [offersModel, setOffersModel] = useState<GundamModel | null>(null);
+  const [showAuth, setShowAuth] = useState(false);
 
   // Load models from DB (if signed in) on mount or auth change. Otherwise show nothing.
   useEffect(() => {
@@ -277,7 +279,7 @@ const Index = () => {
               }
             </p>
             {models.length === 0 && (
-              <Button onClick={() => setShowForm(true)}>
+              <Button onClick={() => (signedIn ? setShowForm(true) : setShowAuth(true))}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Your First Model
               </Button>
@@ -345,6 +347,9 @@ const Index = () => {
           )}
         </DialogContent>
       </Dialog>
+
+  {/* Auth providers dialog */}
+  <AuthDialog open={showAuth} onOpenChange={setShowAuth} />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
