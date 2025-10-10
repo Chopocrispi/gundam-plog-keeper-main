@@ -112,19 +112,6 @@ function queryVariants(q, grade) {
   const toksNoCodes = toksNoGrade.filter(t => !/^[a-z]*\d+[a-z\d-]*$/i.test(t));
   if (toksNoCodes.length) variants.add(toksNoCodes.join(' '));
   if (gabbr && toksNoGrade.length <= 3) variants.add(`${gabbr} ${toksNoGrade.join(' ')}`.trim());
-  // Word shuffle variants to cover different store title word orders
-  if (toksNoGrade.length >= 2) {
-    // reversed order
-    variants.add([...toksNoGrade].reverse().join(' '));
-    // code-first and code-last arrangements
-    const codeIdx = toksNoGrade.findIndex(t => /\d/.test(t));
-    if (codeIdx >= 0) {
-      const code = toksNoGrade[codeIdx];
-      const rest = toksNoGrade.filter((_, i) => i !== codeIdx);
-      variants.add([code, ...rest].join(' ')); // code first
-      variants.add([...rest, code].join(' ')); // code last
-    }
-  }
   return Array.from(variants).filter(Boolean);
 }
 
@@ -143,13 +130,13 @@ async function shopify(domain, query, source, grade) {
   try {
     const base = `https://${domain}`;
     const variants = queryVariants(query, grade);
+    const tokens = coreTokens(query, grade);
     const out = [];
-    const seen = new Set();
     // Try predictive/suggest API first
     for (const v of variants) {
       const tokens = coreTokens(v, grade);
       try {
-        const suggest = `${base}/search/suggest.json?q=${encodeURIComponent(v)}&resources[type]=product&resources[limit]=10`;
+        const suggest = `${base}/search/suggest.json?q=${encodeURIComponent(v)}&resources[type]=product&resources[limit]=20`;
         const data = await fetchJson(suggest);
         const products = data?.resources?.results?.products || [];
         for (const p of products) {
@@ -160,9 +147,9 @@ async function shopify(domain, query, source, grade) {
           if (pjs && typeof pjs.price === 'number') price = Math.round(pjs.price) / 100;
           const title = p.title || pjs?.title || 'Product';
           if (!isRelevantTitle(title, tokens)) continue;
-          const url = `${base}/products/${handle}`;
-          if (!seen.has(url)) { seen.add(url); out.push({ store: source, title, url, price, currency: 'USD' }); }
+          out.push({ store: source, title, url: `${base}/products/${handle}`, price, currency: 'USD' });
         }
+        if (out.length) return out;
       } catch { /* try next variant */ }
     }
     // HTML fallback: parse /search results for product links
@@ -179,9 +166,9 @@ async function shopify(domain, query, source, grade) {
           if (pjs && typeof pjs.price === 'number') price = Math.round(pjs.price) / 100;
           const title = pjs?.title || 'Product';
           if (!isRelevantTitle(title, tokens)) continue;
-          const url2 = `${base}/products/${handle}`;
-          if (!seen.has(url2)) { seen.add(url2); out.push({ store: source, title, url: url2, price, currency: 'USD' }); }
+          out.push({ store: source, title, url: `${base}/products/${handle}`, price, currency: 'USD' });
         }
+        if (out.length) return out;
       } catch { /* next variant */ }
     }
     return out;
