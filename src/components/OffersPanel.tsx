@@ -64,14 +64,14 @@ export function OffersPanel({ name, grade, imageUrl }: OffersPanelProps) {
         {!loading && offers && offers.length > 0 && (
           <ul className="divide-y divide-border">
             {offers.map((o, idx) => (
-              <li key={idx} className="py-2 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="font-medium text-sm truncate">{o.title}</div>
-                  <div className="text-xs text-muted-foreground truncate">
+              <li key={idx} className="py-2 flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-sm whitespace-normal break-words leading-snug">{o.title}</div>
+                  <div className="text-xs text-muted-foreground whitespace-normal break-words">
                     {o.store} · <a href={o.url} target="_blank" rel="noreferrer" className="underline inline-flex items-center gap-1">Open <ExternalLink className="h-3 w-3" /></a>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-start gap-2 shrink-0">
                   {o.availability && (
                     <Badge variant="outline" className="text-xs">
                       {o.availability === 'in_stock' ? 'In stock' : o.availability === 'out_of_stock' ? 'OOS' : 'Unknown'}
