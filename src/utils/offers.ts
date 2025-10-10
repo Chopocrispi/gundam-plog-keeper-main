@@ -415,3 +415,36 @@ async function fetchLiveOffers(name: string, grade?: GundamGrade): Promise<Offer
   }
   return [];
 }
+
+// Lightweight static-only variant used for summary UI (e.g., avg price on cards)
+// Avoids calling the live API to keep the UI snappy.
+export async function findStaticOffersForModel(name: string, grade?: GundamGrade, opts?: { imageUrl?: string }): Promise<Offer[]> {
+  const idx = await loadOffersIndex();
+  const imgTokens = await tokensFromImage(opts?.imageUrl || '');
+  const q = normalize(`${gradeAbbr(grade)} ${name}`.trim());
+  let staticOffers = idx[q] || [];
+  if (!staticOffers || staticOffers.length === 0) {
+    const combo = normalize(`${gradeAbbr(grade)} ${name} ${imgTokens.join(' ')}`.trim());
+    staticOffers = pickByTokens(idx, tokenize(combo));
+  }
+  const filtered = (staticOffers || [])
+    .filter(o => typeof o.price === 'number' && o.price > 0)
+    .filter(o => matchesSelectedGrade(o.title, grade) && !isNonModelLine(o.title) && !isDecal(o.title));
+
+  // Dedupe by hostname and sort by price ascending
+  const seen = new Map<string, Offer>();
+  for (const o of filtered) {
+    try {
+      const host = new URL(o.url).hostname.replace(/^www\./, '');
+      const prev = seen.get(host);
+      if (!prev || o.price < prev.price) seen.set(host, o);
+    } catch {
+      const key = o.store.toLowerCase();
+      const prev = seen.get(key);
+      if (!prev || o.price < prev.price) seen.set(key, o);
+    }
+  }
+  return Array.from(seen.values())
+    .filter(o => !isDecal(o.title))
+    .sort((a, b) => a.price - b.price);
+}
