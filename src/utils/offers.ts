@@ -1,5 +1,4 @@
 import type { Offer, OffersIndex, GundamGrade } from '@/types/gundam';
-import { GUNPLA_IMAGE_FILENAMES } from '@/utils/gunpladb';
 
 // Lightweight client-side offers lookup that reads a static JSON index from /public
 // Later this can be swapped for a real API that serves fresh scraped prices.
@@ -115,14 +114,22 @@ async function tokensFromImage(imageUrl?: string): Promise<string[]> {
   }
   const base = filename.replace(/\.[^.]+$/, '');
   const fromFilename = tokenize(base);
-  // Augment tokens with the human-friendly kit name from the static map
-  const human = (GUNPLA_IMAGE_FILENAMES as Record<string, string>)[filename]
-    || (GUNPLA_IMAGE_FILENAMES as Record<string, string>)[decodeURIComponent(filename)]
-    || '';
-  if (human) {
-    const nameTokens = tokenize(human);
-    const uniq = new Set<string>([...fromFilename, ...nameTokens]);
-    return Array.from(uniq);
+  // Augment tokens with the human-friendly kit name fetched from Supabase by URL
+  try {
+    const { getSupabase } = await import('@/utils/supabase');
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('gunpla_models')
+      .select('name')
+      .eq('url', imageUrl)
+      .maybeSingle();
+    if (!error && data?.name) {
+      const nameTokens = tokenize(String(data.name));
+      const uniq = new Set<string>([...fromFilename, ...nameTokens]);
+      return Array.from(uniq);
+    }
+  } catch (e) {
+    console.warn('[offers] supabase tokensFromImage error', e);
   }
   return fromFilename;
 }
@@ -137,12 +144,32 @@ function filenameFromUrl(imageUrl?: string): string | '' {
   }
 }
 
-function kitNameFromImage(imageUrl?: string): string | undefined {
+async function kitNameFromImage(imageUrl?: string): Promise<string | undefined> {
   const filename = filenameFromUrl(imageUrl);
   if (!filename) return undefined;
-  const human = (GUNPLA_IMAGE_FILENAMES as Record<string, string>)[filename]
-    || (GUNPLA_IMAGE_FILENAMES as Record<string, string>)[decodeURIComponent(filename)];
-  return human || undefined;
+  // Prefer exact URL match in Supabase
+  try {
+    const { getSupabase } = await import('@/utils/supabase');
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('gunpla_models')
+      .select('name')
+      .eq('url', imageUrl)
+      .maybeSingle();
+    if (!error && data?.name) return String(data.name);
+  } catch {}
+  // Fallback: try matching by filename suffix
+  try {
+    const { getSupabase } = await import('@/utils/supabase');
+    const supabase = getSupabase();
+    const { data } = await supabase
+      .from('gunpla_models')
+      .select('name,url')
+      .ilike('url', `%/${filename}`);
+    const hit = (data || []).find(r => (r as any).url.endsWith(filename));
+    return hit ? String((hit as any).name) : undefined;
+  } catch {}
+  return undefined;
 }
 
 function pickByTokens(idx: OffersIndex, tokens: string[]): Offer[] {
@@ -174,7 +201,8 @@ export async function findOffersForModel(name: string, grade?: GundamGrade, opts
   const imgTokens = await tokensFromImage(opts?.imageUrl || '');
   const extra = (opts?.extraTerms || []).concat(imgTokens);
   const extraStr = extra.join(' ');
-  const effectiveName = kitNameFromImage(opts?.imageUrl) || name;
+  const resolvedName = await kitNameFromImage(opts?.imageUrl);
+  const effectiveName = resolvedName || name;
   const q = normalize(`${gradeAbbr(grade)} ${effectiveName}`.trim());
   // eslint-disable-next-line no-console
   console.log('[offers] query:', q, { effectiveName, providedName: name });

@@ -93,7 +93,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
         .split(' ');
       const keywords = rawTokens.filter(w => w.length > 1 && !stop.has(w));
 
-  const urls = searchGunplaImagesByKeywords(keywords, formData.grade);
+  const urls = await searchGunplaImagesByKeywords(keywords, formData.grade);
       if (mySearchId !== latestSearchRef.current) return; // stale
       if (urls.length > 0) {
         setFormData(prev => ({ ...prev, imageUrl: urls[0] }));
