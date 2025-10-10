@@ -1,8 +1,6 @@
 // Serverless endpoint to fetch live offers from multiple stores.
-// Designed to be portable across hosts (Vercel/Netlify/etc.) by avoiding Node-only
-// imports at module load. Uses dynamic imports and global fetch when available.
+// Portable across hosts by using global fetch and lazy cheerio.
 
-// Lazy-load cheerio only when needed; return null if unavailable in the runtime.
 let _cheerio = null;
 async function getCheerio() {
   if (_cheerio) return _cheerio;
@@ -11,7 +9,7 @@ async function getCheerio() {
     _cheerio = mod.default || mod;
     return _cheerio;
   } catch {
-    return null; // HTML parsing won't be available; non-Shopify scrapes will be skipped
+    return null;
   }
 }
 
@@ -20,8 +18,7 @@ function getFetch() {
   throw new Error('fetch_not_available: Host must provide global fetch (Node 18+ or Edge runtime).');
 }
 
-const DEFAULT_TIMEOUT_MS = 10000; // 10s per upstream request
-
+const DEFAULT_TIMEOUT_MS = 10000;
 async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
   const F = getFetch();
   const canAbort = typeof AbortController !== 'undefined';
@@ -38,12 +35,10 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_M
 function normalize(s) {
   return (s || '')
     .toLowerCase()
-    // normalize greek letters often used in kit names
-    .replace(/[νν]/g, 'nu')
+    .replace(/[ν]/g, 'nu')
     .replace(/[α]/g, 'alpha')
     .replace(/[β]/g, 'beta')
     .replace(/[γ]/g, 'gamma')
-    // strip punctuation
     .replace(/[^a-z0-9\s-]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -62,21 +57,16 @@ function abbr(g) {
 function queryVariants(q, grade) {
   const variants = new Set();
   const raw = (q || '').trim();
-  const g = (grade || '').toLowerCase();
   const gabbr = abbr(grade);
   variants.add(raw);
-  // Remove parentheses and punctuation; collapse dashes
   const depar = raw.replace(/[()]/g, ' ').replace(/[–—-]/g, ' ').replace(/\s+/g, ' ').trim();
   variants.add(depar);
-  // Remove grade words
   const stop = new Set(['hg','rg','mg','pg','fm','sd','high','real','master','perfect','full','mechanics','grade','series']);
   const toks = normalize(depar).split(' ').filter(Boolean);
   const toksNoGrade = toks.filter(t => !stop.has(t) && t !== gabbr);
   if (toksNoGrade.length) variants.add(toksNoGrade.join(' '));
-  // Try without model codes with digits-only tokens trimmed to keep nouns
   const toksNoCodes = toksNoGrade.filter(t => !/^[a-z]*\d+[a-z\d-]*$/i.test(t));
   if (toksNoCodes.length) variants.add(toksNoCodes.join(' '));
-  // Combine with grade abbr prefix if short query
   if (gabbr && toksNoGrade.length <= 3) variants.add(`${gabbr} ${toksNoGrade.join(' ')}`.trim());
   return Array.from(variants).filter(Boolean);
 }
@@ -197,12 +187,40 @@ export default async function handler(req, res) {
       return;
     }
     const variants = queryVariants(q, grade);
+
+    // Shopify domains across multiple regions
+    const shopifyDomains = [
+      // US
+      ['newtype.us', 'Newtype'],
+      ['usagundamstore.com', 'USA Gundam Store'],
+      ['gundamplanet.com', 'Gundam Planet'],
+      ['tatsuhobby.com', 'Tatsu Hobby'],
+      ['mechawarehouse.com', 'Mecha Warehouse'],
+      ['galactictoys.com', 'Galactic Toys'],
+      ['gundampros.com', 'Gundam Pros'],
+      ['modelgrade.net', 'Model Grade'],
+      ['thegundamplace.com', 'The Gundam Place'],
+      ['kappahobby.com', 'Kappa Hobby'],
+      // CA
+      ['canadiangundam.com', 'Canadian Gundam'],
+      // UK/IE
+      ['gundammad.co.uk', 'Gundam Mad'],
+      ['hobbyfrontline.com', 'Hobby Frontline'],
+      // AU
+      ['gundamexpress.com.au', 'Gundam Express'],
+      ['akihabarastation.com.au', 'Akihabara Station'],
+      // JP/Intl (Shopify-based)
+      ['hobby-genki.com', 'Hobby Genki'],
+      ['sugoimart.com', 'Sugoi Mart'],
+      ['ohmygundam.com', 'Oh My Gundam'],
+      ['solarisjapan.com', 'Solaris Japan'],
+    ];
+
     const tasks = [
-    shopify('newtype.us', q, 'Newtype'),
-    shopify('usagundamstore.com', q, 'USA Gundam Store'),
-    shopify('gundamplanet.com', q, 'Gundam Planet'),
-    shopify('tatsuhobby.com', q, 'Tatsu Hobby'),
-    (async () => {
+      // Shopify stores
+      ...shopifyDomains.map(([domain, label]) => shopify(domain, q, label)),
+      // Non-Shopify and international stores with HTML/JSON-LD parsing
+      (async () => {
       const base = 'https://www.hlj.com';
       const abs = makeAbsolutizer(base);
       let links = [];
@@ -265,6 +283,65 @@ export default async function handler(req, res) {
       }
       const results = [];
       for (const url of links) results.push(...await htmlJsonLd(url, 'Nin-Nin Game', 'EUR'));
+      return results;
+    })(),
+    // BigBadToyStore (BBTS)
+    (async () => {
+      const base = 'https://www.bigbadtoystore.com';
+      const abs = makeAbsolutizer(base);
+      let links = [];
+      for (const v of variants) {
+        const l = await findProductLinks(`${base}/Search?SearchText=${encodeURIComponent(v)}`,
+          (href) => href.includes('/Product/'), abs);
+        links.push(...l);
+        if (links.length) break;
+      }
+      const results = [];
+      for (const url of links) results.push(...await htmlJsonLd(url, 'BigBadToyStore', 'USD'));
+      return results;
+    })(),
+    // Premium Bandai USA
+    (async () => {
+      const base = 'https://p-bandai.com';
+      const abs = makeAbsolutizer(base);
+      let links = [];
+      for (const v of variants) {
+        const l = await findProductLinks(`${base}/us/search?keyword=${encodeURIComponent(v)}&all=true`,
+          (href) => href.includes('/us/') && (href.includes('/product') || href.includes('/item') || href.includes('/products/')),
+          abs);
+        links.push(...l);
+        if (links.length) break;
+      }
+      const results = [];
+      for (const url of links) results.push(...await htmlJsonLd(url, 'Premium Bandai USA', 'USD'));
+      return results;
+    })(),
+    // MyKombini (FR)
+    (async () => {
+      const base = 'https://mykombini.com';
+      const abs = makeAbsolutizer(base);
+      let links = [];
+      for (const v of variants) {
+        const l = await findProductLinks(`${base}/en/search?controller=search&s=${encodeURIComponent(v)}`, (href) => href.includes('/en/') && (href.endsWith('.html') || href.includes('/product')), abs);
+        links.push(...l);
+        if (links.length) break;
+      }
+      const results = [];
+      for (const url of links) results.push(...await htmlJsonLd(url, 'MyKombini', 'EUR'));
+      return results;
+    })(),
+    // Tokyo Otaku Mode
+    (async () => {
+      const base = 'https://otakumode.com';
+      const abs = makeAbsolutizer(base);
+      let links = [];
+      for (const v of variants) {
+        const l = await findProductLinks(`${base}/shop/search?keyword=${encodeURIComponent(v)}`, (href) => href.includes('/shop/p') || href.includes('/shop/'), abs);
+        links.push(...l);
+        if (links.length) break;
+      }
+      const results = [];
+      for (const url of links) results.push(...await htmlJsonLd(url, 'Tokyo Otaku Mode', 'USD'));
       return results;
     })(),
   ];
