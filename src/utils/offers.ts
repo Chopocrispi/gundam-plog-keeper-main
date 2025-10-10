@@ -106,6 +106,11 @@ function isNonModelLine(title: string): boolean {
   return bad.some(re => re.test(title));
 }
 
+// Explicitly exclude decal listings (accessories)
+function isDecal(title: string): boolean {
+  return /\bdecals?\b/i.test(title);
+}
+
 export async function loadOffersIndex(): Promise<OffersIndex> {
   // If we already have a non-empty cache, use it
   if (cache && Object.keys(cache).length > 0) return cache;
@@ -334,7 +339,7 @@ export async function findOffersForModel(name: string, grade?: GundamGrade, opts
     if (live.length > 0) {
       offers = live
         .filter(o => typeof o.price === 'number' && o.price > 0)
-        .filter(o => matchesSelectedGrade(o.title, grade) && !isNonModelLine(o.title));
+        .filter(o => matchesSelectedGrade(o.title, grade) && !isNonModelLine(o.title) && !isDecal(o.title));
     }
   } catch (e) {
     console.warn('[offers] live fetch failed', e);
@@ -353,7 +358,7 @@ export async function findOffersForModel(name: string, grade?: GundamGrade, opts
     }
     offers = (staticOffers || [])
       .filter(o => typeof o.price === 'number' && o.price > 0)
-      .filter(o => matchesSelectedGrade(o.title, grade) && !isNonModelLine(o.title));
+      .filter(o => matchesSelectedGrade(o.title, grade) && !isNonModelLine(o.title) && !isDecal(o.title));
   }
 
   // Dedupe by hostname and sort by price ascending
@@ -369,7 +374,9 @@ export async function findOffersForModel(name: string, grade?: GundamGrade, opts
       if (!prev || o.price < prev.price) seen.set(key, o);
     }
   }
-  return Array.from(seen.values()).sort((a, b) => a.price - b.price);
+  return Array.from(seen.values())
+    .filter(o => !isDecal(o.title))
+    .sort((a, b) => a.price - b.price);
 }
 
 async function fetchLiveOffers(name: string, grade?: GundamGrade): Promise<Offer[]> {
