@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import OffersPanel from '@/components/OffersPanel';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Plus, Search, Grid, List, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -29,6 +30,7 @@ const Index = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingModel, setEditingModel] = useState<GundamModel | undefined>();
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [offersModel, setOffersModel] = useState<GundamModel | null>(null);
 
   // Load models from DB (if signed in) on mount or auth change. Otherwise show nothing.
   useEffect(() => {
@@ -271,6 +273,7 @@ const Index = () => {
                 model={model}
                 onEdit={openEditForm}
                 onDelete={setDeleteId}
+                onOffers={setOffersModel}
               />
             ))}
           </div>
@@ -306,6 +309,18 @@ const Index = () => {
               onCancel={closeForm}
             />
           </ErrorBoundary>
+        </DialogContent>
+      </Dialog>
+
+      {/* Offers Dialog */}
+      <Dialog open={!!offersModel} onOpenChange={() => setOffersModel(null)}>
+        <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Store prices</DialogTitle>
+          </DialogHeader>
+          {offersModel && (
+            <OffersPanel name={offersModel.name} grade={offersModel.grade as any} imageUrl={offersModel.imageUrl} />
+          )}
         </DialogContent>
       </Dialog>
 
