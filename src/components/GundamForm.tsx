@@ -81,7 +81,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
       // Fallback: search the local filename list by keywords
       // Remove grade and generic tokens so we don't over-constrain the match
       const stop = new Set([
-        'hg','rg','mg','pg','fm','sd','ms',
+        'hg','rg','mg','pg','fm','sd','ms','eg','fg','hirm','mgsd','lm','hy2m',
         'high','real','master','perfect','full','mechanics','mega','size','super','deformed','grade',
         'gundam','mobile','suit'
       ]);
@@ -168,7 +168,14 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
               <SelectItem value="Master Grade (MG)">Master Grade (MG)</SelectItem>
               <SelectItem value="Perfect Grade (PG)">Perfect Grade (PG)</SelectItem>
               <SelectItem value="Full Mechanics (FM)">Full Mechanics (FM)</SelectItem>
+              <SelectItem value="Mega Size (MS)">Mega Size (MS)</SelectItem>
               <SelectItem value="Super Deformed (SD)">Super Deformed (SD)</SelectItem>
+              <SelectItem value="Entry Grade (EG)">Entry Grade (EG)</SelectItem>
+              <SelectItem value="First Grade (FG)">First Grade (FG)</SelectItem>
+              <SelectItem value="High Resolution Model (HiRM)">High Resolution Model (HiRM)</SelectItem>
+              <SelectItem value="MGSD (MGSD)">MGSD (MGSD)</SelectItem>
+              <SelectItem value="Limited Model (LM)">Limited Model (LM)</SelectItem>
+              <SelectItem value="HY2M (HY2M)">HY2M (HY2M)</SelectItem>
             </SelectContent>
           </Select>
         </div>

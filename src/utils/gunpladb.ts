@@ -51,54 +51,82 @@ export async function searchGunplaImagesByKeywords(keywords: string[], grade?: s
   // by making multiple queries if necessary. To keep it efficient, try one broad query using the first token,
   // then filter client-side for all tokens.
   try {
-    const { getSupabase } = await import('@/utils/supabase');
+    const { supabaseAvailable, getSupabase } = await import('@/utils/supabase');
+    if (!supabaseAvailable()) throw new Error('SUPABASE_DISABLED');
     const supabase = getSupabase();
 
-    // Start with first token to reduce row count, then filter on client
-    const first = lowerKeywords[0];
-    let q = supabase
-      .from('gunpla_models')
-      .select('url,name,grade')
-      .ilike('name', `%${first}%`);
-    if (grade) {
-      const g = grade.toLowerCase();
-      const ors: string[] = [];
-      if (g.includes('high') || g.includes('hg')) ors.push("grade.ilike.%HG%", "grade.ilike.%High Grade%");
-      if (g.includes('real') || g.includes('rg')) ors.push("grade.ilike.%RG%", "grade.ilike.%Real Grade%");
-      if (g.includes('master') || g.includes('mg')) ors.push("grade.ilike.%MG%", "grade.ilike.%Master Grade%");
-      if (g.includes('perfect') || g.includes('pg')) ors.push("grade.ilike.%PG%", "grade.ilike.%Perfect Grade%");
-      if (g.includes('full') || g.includes('fm')) ors.push("grade.ilike.%FM%", "grade.ilike.%Full Mechanics%");
-      if (g.includes('super') || g.includes('sd')) ors.push("grade.ilike.%SD%", "grade.ilike.%Super Deformed%");
-      if (ors.length) {
-        q = q.or(ors.join(','));
-      }
-    }
+    // Build ANDed filters: grade = code (if provided) and name ILIKE for each token
+    const toCode = (g?: string) => {
+      if (!g) return undefined;
+      const u = g.toUpperCase();
+      if (u.includes('PG')) return 'PG';
+      if (u.includes('MG')) return 'MG';
+      if (u.includes('RG')) return 'RG';
+      if (u.includes('HG')) return 'HG';
+      if (u.includes('FM')) return 'FM';
+      if (u.includes('EG')) return 'EG';
+      if (u.includes('FG')) return 'FG';
+      if (u.includes('HIRM')) return 'HiRM';
+      if (u.includes('MGSD')) return 'MGSD';
+      if (u.includes('LM')) return 'LM';
+      if (u.includes('HY2M')) return 'HY2M';
+      if (u.includes('SD')) return 'SD';
+      if (u.includes('MEGA') || u.includes('MS')) return 'MS';
+      if (u.includes('NG')) return 'NG';
+      return undefined;
+    };
+    const gradeCode = toCode(grade);
+
+    let q = supabase.from('gunpla_models').select('url,name,grade');
+    if (gradeCode) q = q.eq('grade', gradeCode);
+    for (const t of lowerKeywords) q = q.ilike('name', `%${t}%`);
     const { data, error } = await q;
     if (error) {
       console.warn('[supabase] search error', error);
       return [];
     }
-    const rows = (data || []) as Array<{ url: string; name: string; grade: string }>;
-    // Client-side ensure that all tokens are present in name
-    const filtered = rows.filter(r => {
-      const n = r.name.toLowerCase();
-      return lowerKeywords.every(k => n.includes(k));
-    });
-
-    // Optionally filter by series tokens inferred from URL if provided
-    let finalRows = filtered;
+    let rows = (data || []) as Array<{ url: string; name: string; grade: string }>;
     if (series) {
       const want = series.trim().toLowerCase();
-      finalRows = filtered.filter(r => {
+      rows = rows.filter(r => {
         const file = r.url.split('/').pop() || r.url;
         const s = inferSeriesFromFilenamePrefix(file) || inferSeriesFromFilename(file) || '';
         return s.toLowerCase() === want;
       });
     }
-    return finalRows.map(r => r.url);
+    return rows.map(r => r.url);
   } catch (e) {
-    console.warn('searchGunplaImagesByKeywords fallback due to error:', e);
-    return [];
+    if ((e as Error).message !== 'SUPABASE_DISABLED') {
+      console.warn('searchGunplaImagesByKeywords fallback due to error:', e);
+    }
+    // Fallback: pattern-based guess from keywords when Supabase unavailable
+    // We cannot enumerate filenames without the DB; produce likely CDN URLs from tokens and grade
+    const gradeMap: Record<string, string[]> = {
+      'high grade (hg)': ['HG', 'HGUC', 'HGHGUC'],
+      'full mechanics (fm)': ['FM', 'Full-Mechanics', 'FullMechanics'],
+      'real grade (rg)': ['RG'],
+      'master grade (mg)': ['MG'],
+      'perfect grade (pg)': ['PG'],
+      'super deformed (sd)': ['SD'],
+      'mega size (ms)': ['MS'],
+      'no grade': ['NG'],
+      'other': ['HG','RG','MG']
+    };
+    const prefixes = grade ? (gradeMap[grade.toLowerCase()] || ['HG','RG','MG']) : ['HG','RG','MG','PG'];
+    const kw = lowerKeywords.map(k => k.toUpperCase());
+    const out = new Set<string>();
+    for (const p of prefixes) {
+      for (const k of kw) {
+        out.add(`https://cdn.gunpladb.net/${p}${k}.jpg`);
+        out.add(`https://cdn.gunpladb.net/${p}-${k}.jpg`);
+      }
+      if (kw.length > 1) {
+        const combined = kw.join('');
+        out.add(`https://cdn.gunpladb.net/${p}${combined}.jpg`);
+        out.add(`https://cdn.gunpladb.net/${p}-${combined}.jpg`);
+      }
+    }
+    return Array.from(out);
   }
 }
 
@@ -127,40 +155,46 @@ export async function fetchGundamImages(
 
     // First, try Supabase table lookup for exact images
     try {
-      const { getSupabase } = await import('@/utils/supabase');
+      const { supabaseAvailable, getSupabase } = await import('@/utils/supabase');
+      if (!supabaseAvailable()) throw new Error('SUPABASE_DISABLED');
       const supabase = getSupabase();
-      const first = keywords[0] || cleanName;
-      let q = supabase
-        .from('gunpla_models')
-        .select('url,name,grade')
-        .ilike('name', `%${first}%`);
-      if (grade) {
-        const g = grade.toLowerCase();
-        const ors: string[] = [];
-        if (g.includes('high') || g.includes('hg')) ors.push("grade.ilike.%HG%", "grade.ilike.%High Grade%");
-        if (g.includes('real') || g.includes('rg')) ors.push("grade.ilike.%RG%", "grade.ilike.%Real Grade%");
-        if (g.includes('master') || g.includes('mg')) ors.push("grade.ilike.%MG%", "grade.ilike.%Master Grade%");
-        if (g.includes('perfect') || g.includes('pg')) ors.push("grade.ilike.%PG%", "grade.ilike.%Perfect Grade%");
-        if (g.includes('full') || g.includes('fm')) ors.push("grade.ilike.%FM%", "grade.ilike.%Full Mechanics%");
-        if (g.includes('super') || g.includes('sd')) ors.push("grade.ilike.%SD%", "grade.ilike.%Super Deformed%");
-        if (ors.length) {
-          q = q.or(ors.join(','));
-        }
-      }
+
+      const toCode = (g?: string) => {
+        if (!g) return undefined;
+        const u = g.toUpperCase();
+        if (u.includes('PG')) return 'PG';
+        if (u.includes('MG')) return 'MG';
+        if (u.includes('RG')) return 'RG';
+        if (u.includes('HG')) return 'HG';
+        if (u.includes('FM')) return 'FM';
+        if (u.includes('EG')) return 'EG';
+        if (u.includes('FG')) return 'FG';
+        if (u.includes('HIRM')) return 'HiRM';
+        if (u.includes('MGSD')) return 'MGSD';
+        if (u.includes('LM')) return 'LM';
+        if (u.includes('HY2M')) return 'HY2M';
+        if (u.includes('SD')) return 'SD';
+        if (u.includes('MEGA') || u.includes('MS')) return 'MS';
+        if (u.includes('NG')) return 'NG';
+        return undefined;
+      };
+      const gradeCode = toCode(grade);
+
+      let q = supabase.from('gunpla_models').select('url,name,grade');
+      if (gradeCode) q = q.eq('grade', gradeCode);
+      for (const t of keywords) q = q.ilike('name', `%${t}%`);
       const { data, error } = await q;
       if (!error) {
-        const rows = (data || []) as Array<{ url: string; name: string; grade: string }>;
-        // ensure all tokens present
-        let filtered = rows.filter(r => keywords.every(k => r.name.toLowerCase().includes(k)));
+        let rows = (data || []) as Array<{ url: string; name: string; grade: string }>;
         if (series) {
           const want = series.trim().toLowerCase();
-          filtered = filtered.filter(r => {
+          rows = rows.filter(r => {
             const file = r.url.split('/').pop() || r.url;
             const s = inferSeriesFromFilenamePrefix(file) || inferSeriesFromFilename(file) || '';
             return s.toLowerCase() === want;
           });
         }
-        const urls = filtered.map(r => r.url);
+        const urls = rows.map(r => r.url);
         if (urls.length > 0) {
           return {
             success: true,
@@ -171,7 +205,9 @@ export async function fetchGundamImages(
       }
     } catch (e) {
       // non-fatal; fall through to pattern guesses
-      console.warn('[gunpladb] Supabase lookup failed, falling back to pattern search', e);
+      if ((e as Error).message !== 'SUPABASE_DISABLED') {
+        console.warn('[gunpladb] Supabase lookup failed, falling back to pattern search', e);
+      }
     }
 
     // Grade → prefixes
