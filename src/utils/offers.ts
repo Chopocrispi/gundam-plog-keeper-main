@@ -5,6 +5,12 @@ import type { Offer, OffersIndex, GundamGrade } from '@/types/gundam';
 
 let cache: OffersIndex | null = null;
 
+const CDN_BASE = 'https://cdn.gunpladb.net/';
+function stripCdnBase(u: string): string {
+  if (!u) return u;
+  return u.startsWith(CDN_BASE) ? u.slice(CDN_BASE.length) : u;
+}
+
 function normalize(s: string) {
   return s
     .toLowerCase()
@@ -119,11 +125,22 @@ async function tokensFromImage(imageUrl?: string): Promise<string[]> {
     const { supabaseAvailable, getSupabase } = await import('@/utils/supabase');
     if (!supabaseAvailable()) throw new Error('SUPABASE_DISABLED');
     const supabase = getSupabase();
-    const { data, error } = await supabase
+    // Try exact full URL, then try matching stored path (without CDN base)
+    const pathOnly = stripCdnBase(imageUrl);
+    let { data, error } = await supabase
       .from('gunpla_models')
       .select('name')
       .eq('url', imageUrl)
       .maybeSingle();
+    if ((error || !data) && pathOnly) {
+      const alt = await supabase
+        .from('gunpla_models')
+        .select('name')
+        .eq('url', pathOnly)
+        .maybeSingle();
+      data = alt.data as any;
+      error = alt.error as any;
+    }
     if (!error && data?.name) {
       const nameTokens = tokenize(String(data.name));
       const uniq = new Set<string>([...fromFilename, ...nameTokens]);
@@ -155,11 +172,21 @@ async function kitNameFromImage(imageUrl?: string): Promise<string | undefined> 
     const { supabaseAvailable, getSupabase } = await import('@/utils/supabase');
     if (!supabaseAvailable()) throw new Error('SUPABASE_DISABLED');
     const supabase = getSupabase();
-    const { data, error } = await supabase
+    const pathOnly = imageUrl ? stripCdnBase(imageUrl) : '';
+    let { data, error } = await supabase
       .from('gunpla_models')
       .select('name')
       .eq('url', imageUrl)
       .maybeSingle();
+    if ((error || !data) && pathOnly) {
+      const alt = await supabase
+        .from('gunpla_models')
+        .select('name')
+        .eq('url', pathOnly)
+        .maybeSingle();
+      data = alt.data as any;
+      error = alt.error as any;
+    }
     if (!error && data?.name) return String(data.name);
   } catch (e) {
     // ignore in absence of Supabase
