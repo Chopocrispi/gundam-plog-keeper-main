@@ -242,6 +242,8 @@ export default async function handler(req, res) {
       ['modelgrade.net', 'Model Grade'],
       ['thegundamplace.com', 'The Gundam Place'],
       ['kappahobby.com', 'Kappa Hobby'],
+      ['thegundamshop.com', 'The Gundam Shop'],
+      ['eknightmedia.com', 'EKnight Media'], // some stores expose /products too
       // CA
       ['canadiangundam.com', 'Canadian Gundam'],
       // UK/IE
@@ -250,17 +252,109 @@ export default async function handler(req, res) {
       // AU
       ['gundamexpress.com.au', 'Gundam Express'],
       ['akihabarastation.com.au', 'Akihabara Station'],
+      ['metrohobbies.com.au', 'Metro Hobbies'],
+      ['hobbyco.com.au', 'Hobbyco'],
       // JP/Intl (Shopify-based)
       ['hobby-genki.com', 'Hobby Genki'],
       ['sugoimart.com', 'Sugoi Mart'],
       ['ohmygundam.com', 'Oh My Gundam'],
       ['solarisjapan.com', 'Solaris Japan'],
+      ['banzaihobby.com', 'Banzai Hobby'],
+      ['lunapark.store', 'LUNA PARK'],
+      ['kitzumi.shop', 'Kitzumi'],
     ];
 
     const tasks = [
       // Shopify stores
   ...shopifyDomains.map(([domain, label]) => shopify(domain, q, label, grade)),
       // Non-Shopify and international stores with HTML/JSON-LD parsing
+      // Geosan Battle (ES, WooCommerce)
+      (async () => {
+        const base = 'https://geosanbattle.com';
+        const abs = makeAbsolutizer(base);
+        let links = [];
+        // Prefer product search: /?s=term&post_type=product
+        for (const v of variants) {
+          const l = await findProductLinks(`${base}/?s=${encodeURIComponent(v)}&post_type=product`, (href) => href.includes('/producto/'), abs);
+          links.push(...l);
+          if (links.length) break;
+        }
+        // Fallback: shop page search (some themes support query on shop URL)
+        if (!links.length) {
+          for (const v of variants) {
+            const l = await findProductLinks(`${base}/tienda-model-kit-gundam/?s=${encodeURIComponent(v)}`, (href) => href.includes('/producto/'), abs);
+            links.push(...l);
+            if (links.length) break;
+          }
+        }
+        const results = [];
+        for (const url of links) results.push(...await htmlJsonLd(url, 'Geosan Battle', 'EUR', coreTokens(q, grade)));
+        return results;
+      })(),
+      // HobbyDigi (HK) — multiple locales
+      (async () => {
+        const base = 'https://www.hobbydigi.com';
+        const abs = makeAbsolutizer(base);
+        const searches = [
+          `${base}/en_us/catalogsearch/result/?q=`,
+          `${base}/en/catalogsearch/result/?q=`,
+        ];
+        let links = [];
+        const predicate = (href) => (href.includes('/en_us/') || href.includes('/en/')) && (href.endsWith('.html') || href.includes('/product'));
+        for (const s of searches) {
+          for (const v of variants) {
+            const l = await findProductLinks(`${s}${encodeURIComponent(v)}`, predicate, abs);
+            links.push(...l);
+            if (links.length) break;
+          }
+          if (links.length) break;
+        }
+        const results = [];
+        for (const url of links) results.push(...await htmlJsonLd(url, 'HobbyDigi', 'HKD', coreTokens(q, grade)));
+        return results;
+      })(),
+      // Mighty Ape (AU/NZ)
+      (async () => {
+        const base = 'https://www.mightyape.com.au';
+        const abs = makeAbsolutizer(base);
+        let links = [];
+        for (const v of variants) {
+          const l = await findProductLinks(`${base}/search?q=${encodeURIComponent(v)}`, (href) => href.includes('/product/'), abs);
+          links.push(...l);
+          if (links.length) break;
+        }
+        const results = [];
+        for (const url of links) results.push(...await htmlJsonLd(url, 'Mighty Ape', 'AUD', coreTokens(q, grade)));
+        return results;
+      })(),
+      // Entertainment Earth (US)
+      (async () => {
+        const base = 'https://www.entertainmentearth.com';
+        const abs = makeAbsolutizer(base);
+        let links = [];
+        for (const v of variants) {
+          const l = await findProductLinks(`${base}/search/?q=${encodeURIComponent(v)}`, (href) => href.includes('/product/'), abs);
+          links.push(...l);
+          if (links.length) break;
+        }
+        const results = [];
+        for (const url of links) results.push(...await htmlJsonLd(url, 'Entertainment Earth', 'USD', coreTokens(q, grade)));
+        return results;
+      })(),
+      // ZAVVI (US/UK/EU)
+      (async () => {
+        const base = 'https://www.zavvi.com';
+        const abs = makeAbsolutizer(base);
+        let links = [];
+        for (const v of variants) {
+          const l = await findProductLinks(`${base}//search/${encodeURIComponent(v)}/list`, (href) => href.includes('/zavvi/') || href.includes('/products/'), abs);
+          links.push(...l);
+          if (links.length) break;
+        }
+        const results = [];
+        for (const url of links) results.push(...await htmlJsonLd(url, 'ZAVVI', 'USD', coreTokens(q, grade)));
+        return results;
+      })(),
       (async () => {
       const base = 'https://www.hlj.com';
       const abs = makeAbsolutizer(base);
