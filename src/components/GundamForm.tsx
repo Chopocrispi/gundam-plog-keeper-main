@@ -12,6 +12,7 @@ import { Star, Search, Loader2, Grid } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ImageSelector } from '@/components/ImageSelector';
+import OffersPanel from '@/components/OffersPanel';
 
 type Props = {
   model?: GundamModel | null;
@@ -53,7 +54,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
 
   // ...existing code...
 
-  const handleManualImageSearch = useCallback(async () => {
+  const handleManualImageSearch = useCallback(async (opts?: { autoOpen?: boolean }) => {
     const mySearchId = ++latestSearchRef.current;
     if (!formData.name.trim()) {
       // silently ignore if name is empty
@@ -65,46 +66,49 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
     // Try the existing fetch-based guesser first (do not include series)
     const result = await fetchGundamImages(formData.name, formData.grade as GundamGrade);
       if (mySearchId !== latestSearchRef.current) return; // stale
-      if (result.success && result.imageUrl) {
-        setFormData(prev => ({ ...prev, imageUrl: result.imageUrl! }));
-        if (result.imageOptions && result.imageOptions.length > 1) {
-          setImageOptions(result.imageOptions);
+      if (result.success && result.imageOptions && result.imageOptions.length > 0) {
+        // Populate options; optionally auto-open grid on background lookups
+        setImageOptions(result.imageOptions);
+        if (opts?.autoOpen) {
           setShowImageSelector(true);
-          // no toast
-        } else {
-          // no toast
         }
+        if (mySearchId === latestSearchRef.current) setIsSearchingImage(false);
         return;
       }
 
       // Fallback: search the local filename list by keywords
-      const keywords = formData.name
+      // Remove grade and generic tokens so we don't over-constrain the match
+      const stop = new Set([
+        'hg','rg','mg','pg','fm','sd','ms','eg','fg','hirm','mgsd','lm','hy2m',
+        'high','real','master','perfect','full','mechanics','mega','size','super','deformed','grade',
+        'gundam','mobile','suit'
+      ]);
+      const rawTokens = formData.name
         .toLowerCase()
         .replace(/[^\w\s-]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim()
-        .split(' ')
-        .filter(w => w.length > 1);
+        .split(' ');
+      const keywords = rawTokens.filter(w => w.length > 1 && !stop.has(w));
 
-    const urls = searchGunplaImagesByKeywords(keywords, formData.grade);
+  const urls = await searchGunplaImagesByKeywords(keywords, formData.grade);
       if (mySearchId !== latestSearchRef.current) return; // stale
       if (urls.length > 0) {
-        setFormData(prev => ({ ...prev, imageUrl: urls[0] }));
-        if (urls.length > 1) {
-          setImageOptions(urls);
+        // Populate options; optionally auto-open grid on background lookups
+        setImageOptions(urls);
+        if (opts?.autoOpen) {
           setShowImageSelector(true);
-          // no toast
-        } else {
-          // no toast
         }
       } else {
         // no toast on not found
       }
+      if (mySearchId === latestSearchRef.current) setIsSearchingImage(false);
     } catch (error) {
       // no toast on error; fail silently
       console.error('Manual image search error:', error);
+      if (mySearchId === latestSearchRef.current) setIsSearchingImage(false);
     }
-    // Only clear searching state if this is still the latest search
+    // Only clear searching state if this is still the latest search (fallback safety)
     if (mySearchId === latestSearchRef.current) setIsSearchingImage(false);
   }, [formData, toast]);
 
@@ -113,7 +117,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
     const name = formData.name.trim();
     if (!name) return;
     const handle = setTimeout(() => {
-      void handleManualImageSearch();
+      void handleManualImageSearch({ autoOpen: true });
     }, 600);
     return () => clearTimeout(handle);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -161,7 +165,14 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
               <SelectItem value="Master Grade (MG)">Master Grade (MG)</SelectItem>
               <SelectItem value="Perfect Grade (PG)">Perfect Grade (PG)</SelectItem>
               <SelectItem value="Full Mechanics (FM)">Full Mechanics (FM)</SelectItem>
+              <SelectItem value="Mega Size (MS)">Mega Size (MS)</SelectItem>
               <SelectItem value="Super Deformed (SD)">Super Deformed (SD)</SelectItem>
+              <SelectItem value="Entry Grade (EG)">Entry Grade (EG)</SelectItem>
+              <SelectItem value="First Grade (FG)">First Grade (FG)</SelectItem>
+              <SelectItem value="High Resolution Model (HiRM)">High Resolution Model (HiRM)</SelectItem>
+              <SelectItem value="MGSD (MGSD)">MGSD (MGSD)</SelectItem>
+              <SelectItem value="Limited Model (LM)">Limited Model (LM)</SelectItem>
+              <SelectItem value="HY2M (HY2M)">HY2M (HY2M)</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -188,10 +199,24 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
         <Textarea value={formData.notes} onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))} />
       </div>
 
+  {/* Store prices panel (sample data via /offers.sample.json; replace with real API later) */}
+  <OffersPanel name={formData.name} grade={formData.grade as GundamGrade} imageUrl={formData.imageUrl} />
+
       <div>
   <Label>{t('form.image')}</Label>
         <div className="flex items-center gap-2">
-          <Button type="button" size="icon" className="h-9 w-9 sm:h-10 sm:w-10" onClick={() => setShowImageSelector(prev => !prev)}>
+          <Button
+            type="button"
+            size="icon"
+            className="h-9 w-9 sm:h-10 sm:w-10"
+            onClick={async () => {
+              // If we don't have options yet and have a name, search first
+              if (!isSearchingImage && imageOptions.length === 0 && formData.name.trim()) {
+                await handleManualImageSearch({ autoOpen: false });
+              }
+              setShowImageSelector(true);
+            }}
+          >
             <Grid />
           </Button>
           {formData.imageUrl && (

@@ -1,0 +1,30 @@
+{
+  "hg gundam aerial": [
+    {
+      "store": "HobbyGundamUSA",
+      "title": "HG XVX-016 Gundam Aerial",
+      "url": "https://www.hobbygundamusa.com/products/hg-xvx-016-gundam-aerial",
+      "price": 21.99,
+      "currency": "USD",
+      "availability": "in_stock"
+    },
+    {
+      "store": "GeosanBattle",
+      "title": "HG XVX-016 Gundam Aerial",
+      "url": "https://www.geosan-battle.com/product/hg-xvx-016-gundam-aerial/",
+      "price": 19.99,
+      "currency": "EUR",
+      "availability": "out_of_stock"
+    }
+  ],
+  "mg zaku ii": [
+    {
+      "store": "HobbyGundamUSA",
+      "title": "MG MS-06 Zaku II",
+      "url": "https://www.hobbygundamusa.com/products/mg-ms-06-zaku-ii",
+      "price": 37.5,
+      "currency": "USD",
+      "availability": "in_stock"
+    }
+  ]
+}
