@@ -14,7 +14,6 @@ interface OffersPanelProps {
 export function OffersPanel({ name, grade, imageUrl }: OffersPanelProps) {
   const [offers, setOffers] = useState<Offer[] | null>(null);
   const [loading, setLoading] = useState(false);
-  const [hideDecals, setHideDecals] = useState(true);
 
   useEffect(() => {
     // Warm the offers index so we can see the network request even before typing
@@ -56,22 +55,9 @@ export function OffersPanel({ name, grade, imageUrl }: OffersPanelProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
-        {/** Controls */}
-        <div className="flex items-center gap-3 mb-2 text-xs">
-          <label className="inline-flex items-center gap-2 select-none cursor-pointer">
-            <input
-              type="checkbox"
-              className="h-3 w-3"
-              checked={hideDecals}
-              onChange={(e) => setHideDecals(e.target.checked)}
-            />
-            Hide decals
-          </label>
-        </div>
         {loading && <div className="text-sm text-muted-foreground">Looking up sample offers…</div>}
-        {/** Apply filter before rendering and for empty-state */}
         {(() => {
-          const filtered = (offers || []).filter(o => !hideDecals || !/decal/i.test(o.title));
+          const filtered = (offers || []); // decals are already filtered globally in utils
           if (loading) return null;
           if (!offers || filtered.length === 0) {
             return (
