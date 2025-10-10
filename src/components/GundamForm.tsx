@@ -66,15 +66,9 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
     // Try the existing fetch-based guesser first (do not include series)
     const result = await fetchGundamImages(formData.name, formData.grade as GundamGrade);
       if (mySearchId !== latestSearchRef.current) return; // stale
-      if (result.success && result.imageUrl) {
-        setFormData(prev => ({ ...prev, imageUrl: result.imageUrl! }));
-        if (result.imageOptions && result.imageOptions.length > 1) {
-          setImageOptions(result.imageOptions);
-          setShowImageSelector(true);
-          // no toast
-        } else {
-          // no toast
-        }
+      if (result.success && result.imageOptions && result.imageOptions.length > 0) {
+        // Do not auto-select or auto-open; just populate options
+        setImageOptions(result.imageOptions);
         return;
       }
 
@@ -96,14 +90,8 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
   const urls = await searchGunplaImagesByKeywords(keywords, formData.grade);
       if (mySearchId !== latestSearchRef.current) return; // stale
       if (urls.length > 0) {
-        setFormData(prev => ({ ...prev, imageUrl: urls[0] }));
-        if (urls.length > 1) {
-          setImageOptions(urls);
-          setShowImageSelector(true);
-          // no toast
-        } else {
-          // no toast
-        }
+        // Do not auto-select or auto-open; just populate options
+        setImageOptions(urls);
       } else {
         // no toast on not found
       }
@@ -208,7 +196,18 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
       <div>
   <Label>{t('form.image')}</Label>
         <div className="flex items-center gap-2">
-          <Button type="button" size="icon" className="h-9 w-9 sm:h-10 sm:w-10" onClick={() => setShowImageSelector(prev => !prev)}>
+          <Button
+            type="button"
+            size="icon"
+            className="h-9 w-9 sm:h-10 sm:w-10"
+            onClick={async () => {
+              // If we don't have options yet and have a name, search first
+              if (!isSearchingImage && imageOptions.length === 0 && formData.name.trim()) {
+                await handleManualImageSearch();
+              }
+              setShowImageSelector(prev => !prev);
+            }}
+          >
             <Grid />
           </Button>
           {formData.imageUrl && (
