@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import GoogleLoginButton from '@/components/GoogleLoginButton';
 import { useAuth } from '@/hooks/use-auth';
 import supabase from '@/lib/supabase';
+import { loadModels as dbLoadModels, insertModel as dbInsertModel, updateModel as dbUpdateModel, deleteModel as dbDeleteModel } from '@/utils/models';
 
 const Index = () => {
   const { toast } = useToast();
@@ -29,42 +30,17 @@ const Index = () => {
   const [editingModel, setEditingModel] = useState<GundamModel | undefined>();
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  // Load models from localStorage on component mount
+  // Load models from DB (if signed in) on mount or auth change. Otherwise show nothing.
   useEffect(() => {
     (async () => {
       if (signedIn && user) {
         try {
-          const { data, error } = await supabase
-            .from('models')
-            .select('*')
-            .eq('user_id', user.sub)
-            .order('created_at', { ascending: true });
-          if (error) throw error;
-          if (data) {
-            // map DB rows to GundamModel
-            const mapped: GundamModel[] = data.map((r: any) => ({
-              id: r.id,
-              name: r.name,
-              grade: r.grade,
-              series: r.series || '',
-              scale: r.scale || undefined,
-              releaseDate: r.release_date || undefined,
-              price: r.price || undefined,
-              buildStatus: r.build_status || 'Unbuilt',
-              rating: r.rating || undefined,
-              notes: r.notes || undefined,
-              imageUrl: r.image_url || undefined,
-              purchaseDate: r.purchase_date || undefined,
-              completionDate: r.completion_date || undefined,
-              createdAt: r.created_at,
-              updatedAt: r.updated_at,
-            }));
-            setModels(mapped);
-            setFilteredModels(mapped);
-            return;
-          }
+          const mapped = await dbLoadModels(user.sub);
+          setModels(mapped);
+          setFilteredModels(mapped);
+          return;
         } catch (e) {
-          console.warn('Failed to load models from Supabase, falling back to localStorage', e);
+          console.warn('Failed to load models from Supabase', e);
         }
       } else {
         // When not signed in, do not show any kits (privacy/require-login)
@@ -74,42 +50,13 @@ const Index = () => {
     })();
   }, [signedIn, user]);
 
-  // Save models to localStorage whenever models change
+  // Save a local cache copy whenever models change (optional cache, not source of truth)
   useEffect(() => {
     (async () => {
-      // always keep local copy
+      // always keep local copy for quick cache
       try { localStorage.setItem('gundam-models', JSON.stringify(models)); } catch (e) {}
-
-      // if signed in, persist to Supabase
-      if (signedIn && user) {
-        try {
-          // upsert all models (simple approach)
-          const toUpsert = models.map(m => ({
-            id: m.id,
-            user_id: user.sub,
-            name: m.name,
-            grade: m.grade,
-            series: m.series,
-            scale: m.scale,
-            release_date: m.releaseDate,
-            price: m.price,
-            build_status: m.buildStatus,
-            rating: m.rating,
-            notes: m.notes,
-            image_url: m.imageUrl,
-            purchase_date: m.purchaseDate,
-            completion_date: m.completionDate,
-            created_at: m.createdAt,
-            updated_at: m.updatedAt,
-          }));
-          const { error } = await supabase.from('models').upsert(toUpsert, { onConflict: 'id' });
-          if (error) console.warn('Supabase upsert error', error);
-        } catch (e) {
-          console.warn('Failed to persist models to Supabase', e);
-        }
-      }
     })();
-  }, [models, signedIn, user]);
+  }, [models]);
 
   // Filter models based on search and filters
   useEffect(() => {
@@ -146,30 +93,8 @@ const Index = () => {
 
       if (signedIn && user) {
         try {
-          const { error, data } = await supabase.from('models').insert([{ 
-            id: newModel.id,
-            user_id: user.sub,
-            name: newModel.name,
-            grade: newModel.grade,
-            series: newModel.series,
-            scale: newModel.scale,
-            release_date: newModel.releaseDate,
-            price: newModel.price,
-            build_status: newModel.buildStatus,
-            rating: newModel.rating,
-            notes: newModel.notes,
-            image_url: newModel.imageUrl,
-            purchase_date: newModel.purchaseDate,
-            completion_date: newModel.completionDate,
-            created_at: newModel.createdAt,
-            updated_at: newModel.updatedAt,
-          }]);
-          if (error) throw error;
-          // if server returned timestamps, sync them
-          if (data && data[0]) {
-            const srv = data[0] as any;
-            setModels(prev => prev.map(m => m.id === id ? ({ ...m, createdAt: srv.created_at || m.createdAt, updatedAt: srv.updated_at || m.updatedAt }) : m));
-          }
+          const saved = await dbInsertModel(newModel, user.sub);
+          setModels(prev => prev.map(m => m.id === id ? saved : m));
           toast({ title: 'Model Added', description: `${newModel.name} saved to your account.` });
         } catch (e) {
           console.warn('Failed to save model to Supabase', e);
@@ -193,26 +118,8 @@ const Index = () => {
 
       if (signedIn && user) {
         try {
-          const { error, data } = await supabase.from('models').update({
-            name: updatedModel.name,
-            grade: updatedModel.grade,
-            series: updatedModel.series,
-            scale: updatedModel.scale,
-            release_date: updatedModel.releaseDate,
-            price: updatedModel.price,
-            build_status: updatedModel.buildStatus,
-            rating: updatedModel.rating,
-            notes: updatedModel.notes,
-            image_url: updatedModel.imageUrl,
-            purchase_date: updatedModel.purchaseDate,
-            completion_date: updatedModel.completionDate,
-            updated_at: updatedModel.updatedAt,
-          }).eq('id', updatedModel.id).eq('user_id', user.sub).select();
-          if (error) throw error;
-          if (data && data[0]) {
-            const srv = data[0] as any;
-            setModels(prev => prev.map(m => m.id === updatedModel.id ? ({ ...m, updatedAt: srv.updated_at || m.updatedAt }) : m));
-          }
+          const saved = await dbUpdateModel(updatedModel, user.sub);
+          setModels(prev => prev.map(m => m.id === updatedModel.id ? saved : m));
           toast({ title: 'Model Updated', description: `${updatedModel.name} saved to your account.` });
         } catch (e) {
           console.warn('Failed to update model in Supabase', e);
@@ -233,8 +140,7 @@ const Index = () => {
 
       if (signedIn && user) {
         try {
-          const { error } = await supabase.from('models').delete().eq('id', id).eq('user_id', user.sub);
-          if (error) throw error;
+          await dbDeleteModel(id, user.sub);
           toast({ title: 'Model Deleted', description: `${model?.name || 'Model'} removed from your account.` });
         } catch (e) {
           console.warn('Failed to delete model from Supabase', e);
