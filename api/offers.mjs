@@ -81,9 +81,19 @@ function isRelevantTitle(title, tokens) {
   // Block obvious accessories unless we have strong overlap
   const looksAccessory = /modeling support goods|\bmsg\b|m s g|accessor|weapon set|option parts|kotobukiya|frame arms|30mm|30 minutes missions/.test(titleStr);
   if (looksAccessory && present.length < 2) return false;
-  // If any token includes digits (model codes), require at least one digit token present
-  const hasDigitToken = tokens.some(t => /\d/.test(t));
-  if (hasDigitToken) return present.some(t => /\d/.test(t));
+  // If any token includes digits (model codes), prefer a digit token match; otherwise allow a strong non-digit token match
+  const digitTokens = tokens.filter(t => /\d/.test(t));
+  if (digitTokens.length > 0) {
+    const digitPresent = present.some(t => /\d/.test(t));
+    if (!digitPresent) {
+      // Fallback: accept if at least one strong non-digit token matches (e.g., 'justice')
+      const strong = tokens.filter(t => !/\d/.test(t));
+      if (strong.length === 0) return false;
+      const strongPresent = strong.some(t => titleStr.includes(t));
+      return strongPresent;
+    }
+    return true;
+  }
   // Otherwise require at least 2 token overlaps to reduce false positives
   return present.length >= 2;
 }
@@ -124,6 +134,7 @@ async function shopify(domain, query, source, grade) {
     const out = [];
     // Try predictive/suggest API first
     for (const v of variants) {
+      const tokens = coreTokens(v, grade);
       try {
         const suggest = `${base}/search/suggest.json?q=${encodeURIComponent(v)}&resources[type]=product&resources[limit]=10`;
         const data = await fetchJson(suggest);
@@ -143,6 +154,7 @@ async function shopify(domain, query, source, grade) {
     }
     // HTML fallback: parse /search results for product links
     for (const v of variants) {
+      const tokens = coreTokens(v, grade);
       try {
         const abs = makeAbsolutizer(base);
         const links = await findProductLinks(`${base}/search?q=${encodeURIComponent(v)}`, (href) => href.includes('/products/'), abs);
@@ -288,7 +300,7 @@ export default async function handler(req, res) {
           }
         }
         const results = [];
-        for (const url of links) results.push(...await htmlJsonLd(url, 'Geosan Battle', 'EUR', coreTokens(q, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'Geosan Battle', 'EUR', coreTokens(v, grade)));
         return results;
       })(),
       // HobbyDigi (HK) — multiple locales
@@ -310,7 +322,7 @@ export default async function handler(req, res) {
           if (links.length) break;
         }
         const results = [];
-        for (const url of links) results.push(...await htmlJsonLd(url, 'HobbyDigi', 'HKD', coreTokens(q, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'HobbyDigi', 'HKD', coreTokens(v, grade)));
         return results;
       })(),
       // Mighty Ape (AU/NZ)
@@ -324,7 +336,7 @@ export default async function handler(req, res) {
           if (links.length) break;
         }
         const results = [];
-        for (const url of links) results.push(...await htmlJsonLd(url, 'Mighty Ape', 'AUD', coreTokens(q, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'Mighty Ape', 'AUD', coreTokens(v, grade)));
         return results;
       })(),
       // Entertainment Earth (US)
@@ -338,7 +350,7 @@ export default async function handler(req, res) {
           if (links.length) break;
         }
         const results = [];
-        for (const url of links) results.push(...await htmlJsonLd(url, 'Entertainment Earth', 'USD', coreTokens(q, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'Entertainment Earth', 'USD', coreTokens(v, grade)));
         return results;
       })(),
       // ZAVVI (US/UK/EU)
@@ -352,7 +364,7 @@ export default async function handler(req, res) {
           if (links.length) break;
         }
         const results = [];
-        for (const url of links) results.push(...await htmlJsonLd(url, 'ZAVVI', 'USD', coreTokens(q, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'ZAVVI', 'USD', coreTokens(v, grade)));
         return results;
       })(),
       (async () => {
@@ -365,7 +377,7 @@ export default async function handler(req, res) {
         if (links.length) break;
       }
       const results = [];
-        for (const url of links) results.push(...await htmlJsonLd(url, 'HLJ', 'JPY', coreTokens(q, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'HLJ', 'JPY', coreTokens(v, grade)));
       return results;
     })(),
     (async () => {
@@ -378,7 +390,7 @@ export default async function handler(req, res) {
         if (links.length) break;
       }
       const results = [];
-        for (const url of links) results.push(...await htmlJsonLd(url, 'HobbySearch', 'JPY', coreTokens(q, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'HobbySearch', 'JPY', coreTokens(v, grade)));
       return results;
     })(),
     (async () => {
@@ -391,7 +403,7 @@ export default async function handler(req, res) {
         if (links.length) break;
       }
       const results = [];
-        for (const url of links) results.push(...await htmlJsonLd(url, 'Plaza Japan', 'USD', coreTokens(q, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'Plaza Japan', 'USD', coreTokens(v, grade)));
       return results;
     })(),
     (async () => {
@@ -404,7 +416,7 @@ export default async function handler(req, res) {
         if (links.length) break;
       }
       const results = [];
-        for (const url of links) results.push(...await htmlJsonLd(url, 'AmiAmi', 'JPY', coreTokens(q, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'AmiAmi', 'JPY', coreTokens(v, grade)));
       return results;
     })(),
     (async () => {
@@ -417,7 +429,7 @@ export default async function handler(req, res) {
         if (links.length) break;
       }
       const results = [];
-        for (const url of links) results.push(...await htmlJsonLd(url, 'Nin-Nin Game', 'EUR', coreTokens(q, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'Nin-Nin Game', 'EUR', coreTokens(v, grade)));
       return results;
     })(),
     // BigBadToyStore (BBTS)
@@ -432,7 +444,7 @@ export default async function handler(req, res) {
         if (links.length) break;
       }
       const results = [];
-        for (const url of links) results.push(...await htmlJsonLd(url, 'BigBadToyStore', 'USD', coreTokens(q, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'BigBadToyStore', 'USD', coreTokens(v, grade)));
       return results;
     })(),
     // Premium Bandai USA
@@ -448,7 +460,7 @@ export default async function handler(req, res) {
         if (links.length) break;
       }
       const results = [];
-        for (const url of links) results.push(...await htmlJsonLd(url, 'Premium Bandai USA', 'USD', coreTokens(q, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'Premium Bandai USA', 'USD', coreTokens(v, grade)));
       return results;
     })(),
     // MyKombini (FR)
@@ -462,7 +474,7 @@ export default async function handler(req, res) {
         if (links.length) break;
       }
       const results = [];
-        for (const url of links) results.push(...await htmlJsonLd(url, 'MyKombini', 'EUR', coreTokens(q, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'MyKombini', 'EUR', coreTokens(v, grade)));
       return results;
     })(),
     // Tokyo Otaku Mode
@@ -476,7 +488,7 @@ export default async function handler(req, res) {
         if (links.length) break;
       }
       const results = [];
-        for (const url of links) results.push(...await htmlJsonLd(url, 'Tokyo Otaku Mode', 'USD', coreTokens(q, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'Tokyo Otaku Mode', 'USD', coreTokens(v, grade)));
       return results;
     })(),
   ];
