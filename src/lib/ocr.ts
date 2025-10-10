@@ -88,7 +88,7 @@ export async function identifyFromImageFree(imageUrl: string): Promise<{
   const scale = scaleFromText(text);
   const modelCode = modelCodeFromText(text);
   const keywords = toKeywords(text);
-  const matches = keywords.length ? searchGunplaImagesByKeywords(keywords, grade) : [];
+  const matches = keywords.length ? await searchGunplaImagesByKeywords(keywords, grade) : [];
 
   const candidates = matches.slice(0, 5).map((u, i) => ({
     name: humanizeFromFilename(u) || 'Unknown kit',
