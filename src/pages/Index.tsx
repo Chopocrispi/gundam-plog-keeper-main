@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Plus, Search, Grid, List, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import GoogleLoginButton from '@/components/GoogleLoginButton';
+import DiscordLoginButton from '@/components/DiscordLoginButton';
 import { useAuth } from '@/hooks/use-auth';
 import supabase from '@/lib/supabase';
 import { prefetchOffersIndex, clearOffersCache, prefetchOffersBatch } from '@/utils/offers';
@@ -196,8 +197,9 @@ const Index = () => {
               </h1>
             </div>
             {/* header actions (sign in, etc.) — floating Add Model button moved to bottom-left */}
-            <div className="ml-4">
+            <div className="ml-4 flex items-center gap-2">
               <GoogleLoginButton />
+              <DiscordLoginButton />
             </div>
           </div>
         </div>
