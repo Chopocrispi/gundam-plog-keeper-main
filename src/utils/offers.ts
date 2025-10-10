@@ -254,12 +254,15 @@ export async function findOffersForModel(name: string, grade?: GundamGrade, opts
     offers = byTokens;
   }
 
+  // Remove zero/negative priced offers early
+  offers = (offers || []).filter(o => typeof o.price === 'number' && o.price > 0);
+
   // If still nothing from static index, try live endpoint
   if (!offers || offers.length === 0) {
     try {
       const live = await fetchLiveOffers(effectiveName, grade);
       if (live.length > 0) {
-        offers = live;
+        offers = live.filter(o => typeof o.price === 'number' && o.price > 0);
       }
     } catch (e) {
       console.warn('[offers] live fetch failed', e);
@@ -280,7 +283,9 @@ export async function findOffersForModel(name: string, grade?: GundamGrade, opts
       if (!prev || o.price < prev.price) seen.set(key, o);
     }
   }
-  return Array.from(seen.values()).sort((a, b) => a.price - b.price);
+  return Array.from(seen.values())
+    .filter(o => o.price > 0)
+    .sort((a, b) => a.price - b.price);
 }
 
 async function fetchLiveOffers(name: string, grade?: GundamGrade): Promise<Offer[]> {
@@ -311,7 +316,7 @@ async function fetchLiveOffers(name: string, grade?: GundamGrade): Promise<Offer
           currency: String(o.currency || 'USD'),
           availability: o.availability || undefined,
         }))
-        .filter(o => !Number.isNaN(o.price));
+        .filter(o => !Number.isNaN(o.price) && o.price > 0);
       if (out.length > 0) return out;
     } catch (e) {
       console.warn('[offers] live fetch error', e);
