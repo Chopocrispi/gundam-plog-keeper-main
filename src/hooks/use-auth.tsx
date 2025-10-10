@@ -13,7 +13,7 @@ type User = {
 type AuthContextValue = {
   user: User | null;
   signedIn: boolean;
-  signIn: () => void;
+  signIn: (provider?: 'google' | 'discord') => void;
   signOut: () => void;
 };
 
@@ -141,11 +141,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     })();
   }, [user]);
 
-  const signIn = () => {
-    // Use Supabase OAuth for Google sign-in if configured
-    const provider = 'google';
+  const signIn = (provider: 'google' | 'discord' = 'google') => {
+    // Use Supabase OAuth; supports 'google' and 'discord'
     const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
-    supabase.auth.signInWithOAuth({ provider, options: { redirectTo } }).then((res) => {
+    const scopes = provider === 'discord' ? 'identify email' : undefined;
+    supabase.auth.signInWithOAuth({ provider, options: { redirectTo, scopes } }).then((res) => {
       if (res.error) {
         console.warn('Supabase signInWithOAuth failed', res.error);
         const msg = res.error.message || 'OAuth sign-in failed';
