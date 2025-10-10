@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import GoogleLoginButton from '@/components/GoogleLoginButton';
 import { useAuth } from '@/hooks/use-auth';
 import supabase from '@/lib/supabase';
-import { prefetchOffersIndex, clearOffersCache } from '@/utils/offers';
+import { prefetchOffersIndex, clearOffersCache, prefetchOffersBatch } from '@/utils/offers';
 import { loadModels as dbLoadModels, insertModel as dbInsertModel, updateModel as dbUpdateModel, deleteModel as dbDeleteModel } from '@/utils/models';
 
 const Index = () => {
@@ -43,6 +43,11 @@ const Index = () => {
           const mapped = await dbLoadModels(user.sub);
           setModels(mapped);
           setFilteredModels(mapped);
+          // Kick off background prefetch for each kit's offers (non-blocking)
+          void prefetchOffersBatch(
+            mapped.map(m => ({ name: m.name, grade: m.grade as any, imageUrl: m.imageUrl })),
+            4
+          );
           return;
         } catch (e) {
           console.warn('Failed to load models from Supabase', e);
@@ -63,6 +68,17 @@ const Index = () => {
       try { localStorage.setItem('gundam-models', JSON.stringify(models)); } catch (e) {}
     })();
   }, [models]);
+
+  // Background prefetch of offers whenever models list changes (and user is signed in)
+  useEffect(() => {
+    if (!signedIn || !user) return;
+    if (!models || models.length === 0) return;
+    // fire-and-forget prefetch; keep concurrency modest
+    void prefetchOffersBatch(
+      models.map(m => ({ name: m.name, grade: m.grade as any, imageUrl: m.imageUrl })),
+      4
+    );
+  }, [models, signedIn, user]);
 
   // Filter models based on search and filters
   useEffect(() => {
