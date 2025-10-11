@@ -21,12 +21,9 @@ const Home: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="container mx-auto px-6 py-24">
         <div className="max-w-3xl mx-auto text-center">
-          <div className="inline-block rounded-md overflow-hidden border mb-4" style={{ borderColor: 'hsl(var(--border))' }}>
-            <div className="px-4 py-3" style={{ background: 'hsl(var(--sidebar-primary))' }}>
-              <span className="text-4xl sm:text-5xl font-extrabold tracking-wide" style={{ color: '#fff' }}>Gund</span>
-              <span className="text-4xl sm:text-5xl font-extrabold tracking-wide" style={{ color: 'hsl(var(--gundam-yellow))' }}>app</span>
-            </div>
-          </div>
+          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-wide mb-4" style={{ color: 'hsl(var(--gundam-red))' }}>
+            Gundapp
+          </h1>
 
           <div className="flex items-center justify-center gap-4">
             {!signedIn ? (
