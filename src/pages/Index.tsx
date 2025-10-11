@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { GundamModel } from '@/types/gundam';
 import { GundamCard } from '@/components/GundamCard';
@@ -12,6 +13,8 @@ import OffersPanel from '@/components/OffersPanel';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Plus, Search, Grid, List, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import GoogleLoginButton from '@/components/GoogleLoginButton';
+import DiscordLoginButton from '@/components/DiscordLoginButton';
 import AuthDialog from '@/components/AuthDialog';
 import { useAuth } from '@/hooks/use-auth';
 import supabase from '@/lib/supabase';
@@ -22,6 +25,7 @@ const Index = () => {
   const { toast } = useToast();
   const { t } = useTranslation();
   const { user, signedIn } = useAuth();
+  const navigate = useNavigate();
   const [models, setModels] = useState<GundamModel[]>([]);
   const [filteredModels, setFilteredModels] = useState<GundamModel[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,6 +37,13 @@ const Index = () => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [offersModel, setOffersModel] = useState<GundamModel | null>(null);
   const [showAuth, setShowAuth] = useState(false);
+
+  // If the user signs out while on this page, send them back to home
+  useEffect(() => {
+    if (!signedIn) {
+      navigate('/');
+    }
+  }, [signedIn, navigate]);
 
   // Load models from DB (if signed in) on mount or auth change. Otherwise show nothing.
   useEffect(() => {
@@ -198,11 +209,8 @@ const Index = () => {
             </div>
             {/* header actions (sign in, etc.) — floating Add Model button moved to bottom-left */}
             <div className="ml-4 flex items-center gap-2">
-              {!signedIn && (
-                <Button onClick={() => setShowAuth(true)}>
-                  Sign in
-                </Button>
-              )}
+              <GoogleLoginButton />
+              <DiscordLoginButton />
             </div>
           </div>
         </div>
