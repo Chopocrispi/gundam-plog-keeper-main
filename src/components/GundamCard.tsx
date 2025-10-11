@@ -158,7 +158,7 @@ export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProp
         )}
       </CardContent>
       
-      <CardFooter className="p-4 pt-2 flex gap-1 flex-nowrap items-stretch border-t" style={{ borderColor: 'hsl(var(--border))' }}>
+  <CardFooter className="p-4 pt-2 flex gap-0.5 flex-nowrap items-stretch border-t" style={{ borderColor: 'hsl(var(--border))' }}>
         <Button
           variant="outline"
           size="sm"
