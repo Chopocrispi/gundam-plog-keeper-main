@@ -18,7 +18,7 @@ const Home: React.FC = () => {
   }, [signedIn, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="min-h-dvh min-h-screen w-full flex items-center justify-center bg-background overflow-x-hidden">
       <div className="container mx-auto px-6 py-24">
         <div className="max-w-3xl mx-auto text-center">
           <h1 className="text-4xl sm:text-5xl font-extrabold tracking-wide mb-4" style={{ color: 'hsl(var(--gundam-red))' }}>

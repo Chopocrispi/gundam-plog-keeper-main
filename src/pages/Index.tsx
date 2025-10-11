@@ -197,7 +197,7 @@ const Index = () => {
   };
 
   return (
-  <div className="min-h-screen bg-background">
+  <div className="min-h-dvh min-h-screen w-full bg-background overflow-x-hidden">
       {/* Header */}
       <header className="border-b sticky top-0 z-40" style={{ background: 'hsl(var(--sidebar-background))' }}>
         <div className="container mx-auto px-4 py-4 sm:py-6">
@@ -217,7 +217,7 @@ const Index = () => {
       </header>
 
       {/* Filters and Search */}
-      <div className="container mx-auto px-4 py-6">
+  <div className="container mx-auto px-4 py-6">
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
