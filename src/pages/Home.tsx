@@ -18,8 +18,8 @@ const Home: React.FC = () => {
   }, [signedIn, navigate]);
 
   return (
-    <div className="min-h-screen bg-no-repeat bg-cover" style={{ backgroundImage: 'url(/Gunpla banner.webp)', backgroundColor: 'hsl(var(--sidebar-background))' }}>
-      <div className="container mx-auto px-6 py-24 flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="container mx-auto px-6 py-24">
         <div className="max-w-3xl mx-auto text-center">
           <div className="inline-block rounded-md overflow-hidden border mb-4" style={{ borderColor: 'hsl(var(--border))' }}>
             <div className="px-4 py-3" style={{ background: 'hsl(var(--sidebar-primary))' }}>
