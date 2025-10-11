@@ -13,7 +13,9 @@ type User = {
 type AuthContextValue = {
   user: User | null;
   signedIn: boolean;
-  signIn: () => void;
+  signIn: (provider?: 'google' | 'discord') => void;
+  signInWithEmailPassword: (email: string, password: string) => Promise<void>;
+  signUpWithEmailPassword: (args: { email: string; password: string; name?: string }) => Promise<void>;
   signOut: () => void;
 };
 
@@ -141,11 +143,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     })();
   }, [user]);
 
-  const signIn = () => {
-    // Use Supabase OAuth for Google sign-in if configured
-    const provider = 'google';
+  const signIn = (provider: 'google' | 'discord' = 'google') => {
+    // Use Supabase OAuth; supports 'google' and 'discord'
     const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
-    supabase.auth.signInWithOAuth({ provider, options: { redirectTo } }).then((res) => {
+    const scopes = provider === 'discord' ? 'identify email' : undefined;
+    supabase.auth.signInWithOAuth({ provider, options: { redirectTo, scopes } }).then((res) => {
       if (res.error) {
         console.warn('Supabase signInWithOAuth failed', res.error);
         const msg = res.error.message || 'OAuth sign-in failed';
@@ -163,7 +165,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, signedIn: !!user, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, signedIn: !!user, signIn,
+    signInWithEmailPassword: async (email: string, password: string) => {
+      try {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        toast({ title: 'Signed in', description: 'Welcome back!' });
+      } catch (e: any) {
+        toast({ title: 'Sign-in failed', description: e?.message || 'Invalid email or password.' });
+      }
+    },
+    signUpWithEmailPassword: async ({ email, password, name }: { email: string; password: string; name?: string }) => {
+      try {
+        const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: name ? { full_name: name, name } : undefined,
+            emailRedirectTo: redirectTo,
+          },
+        });
+        if (error) throw error;
+        // If email confirmations are enabled, session will be null and an email is sent
+        if (!data.session) {
+          toast({ title: 'Verify your email', description: 'We sent you a confirmation link to complete your registration.' });
+        } else {
+          toast({ title: 'Account created', description: 'Welcome!' });
+        }
+      } catch (e: any) {
+        toast({ title: 'Sign-up failed', description: e?.message || 'Unable to create account.' });
+      }
+    },
+    signOut }}>
       {children}
     </AuthContext.Provider>
   );

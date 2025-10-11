@@ -3,9 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
+import AuthDialog from '@/components/AuthDialog';
 
 const Home: React.FC = () => {
-  const { user, signedIn, signIn } = useAuth();
+  const { user, signedIn } = useAuth();
+  const [showAuth, setShowAuth] = React.useState(false);
   const { t } = useTranslation();
   const navigate = useNavigate();
 
@@ -23,10 +25,11 @@ const Home: React.FC = () => {
 
           <div className="flex items-center justify-center gap-4">
             {!signedIn ? (
-              <Button size="lg" onClick={() => signIn()} className="bg-gradient-to-r from-primary to-gundam-red">Get started — Sign in</Button>
+              <Button size="lg" onClick={() => setShowAuth(true)} className="bg-gradient-to-r from-primary to-gundam-red">Get started — Sign in</Button>
             ) : (
               <Link to="/app"><Button size="lg">Open my collection</Button></Link>
             )}
+  <AuthDialog open={showAuth} onOpenChange={setShowAuth} />
           </div>
         </div>
       </div>
