@@ -199,12 +199,12 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       {/* Header */}
-      <header className="border-b sticky top-0 z-40" style={{ background: 'hsl(var(--sidebar-background))' }}>
-        <div className="container mx-auto px-4 py-4 sm:py-6">
+      <header className="border-b sticky top-0 z-40 bg-no-repeat bg-cover" style={{ backgroundImage: 'url(/Gunpla banner.webp)', backgroundColor: 'hsl(var(--sidebar-background))' }}>
+        <div className="container mx-auto px-4 py-6 sm:py-8">
           <div className="flex items-center justify-between">
             <div>
-              <div className="rounded-md overflow-hidden border" style={{ borderColor: 'hsl(var(--border))' }}>
-                <div className="px-3 py-2" style={{ background: 'hsl(var(--sidebar-primary))' }}>
+              <div className="rounded-md overflow-hidden border backdrop-blur-sm/50" style={{ borderColor: 'hsl(var(--border))' }}>
+                <div className="px-3 py-2" style={{ background: 'rgba(31,60,136,0.92)' }}>
                   <span className="font-extrabold tracking-wide" style={{ color: '#fff' }}>Gund</span>
                   <span className="font-extrabold tracking-wide" style={{ color: 'hsl(var(--gundam-yellow))' }}>app</span>
                 </div>
