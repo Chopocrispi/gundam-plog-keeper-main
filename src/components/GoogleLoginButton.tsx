@@ -12,10 +12,14 @@ export function GoogleLoginButton() {
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2 max-w-full">
       {user?.picture && <img src={user.picture} className="h-6 w-6 rounded-full" alt={user?.name} />}
-      <div className="text-sm">{user?.name || user?.email}</div>
-      <Button variant="outline" size="sm" onClick={() => signOut()}>Sign out</Button>
+      <div className="text-sm whitespace-normal break-words leading-tight max-w-[52vw] sm:max-w-none">
+        {user?.name || user?.email}
+      </div>
+      <Button className="shrink-0" variant="outline" size="sm" onClick={() => signOut()}>
+        Sign out
+      </Button>
     </div>
   );
 }

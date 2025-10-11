@@ -201,14 +201,14 @@ const Index = () => {
       {/* Header */}
       <header className="border-b sticky top-0 z-40" style={{ background: 'hsl(var(--sidebar-background))' }}>
         <div className="container mx-auto px-4 py-4 sm:py-6">
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="min-w-0">
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-wide" style={{ color: 'hsl(var(--gundam-red))' }}>
                 Gundapp
               </h1>
             </div>
             {/* header actions (sign in, etc.) — floating Add Model button moved to bottom-left */}
-            <div className="ml-4 flex items-center gap-2">
+            <div className="ml-4 flex items-center gap-2 min-w-0">
               <GoogleLoginButton />
               <DiscordLoginButton />
             </div>
