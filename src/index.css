@@ -168,6 +168,8 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    /* Dark blue background like email dark scheme, but keep surfaces white via components */
+    background-color: hsl(224 61% 14%);
+    color: hsl(var(--foreground));
   }
 }
