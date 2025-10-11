@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { GundamModel } from '@/types/gundam';
 import { GundamCard } from '@/components/GundamCard';
@@ -8,18 +9,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import OffersPanel from '@/components/OffersPanel';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Plus, Search, Grid, List, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import GoogleLoginButton from '@/components/GoogleLoginButton';
+import DiscordLoginButton from '@/components/DiscordLoginButton';
+import AuthDialog from '@/components/AuthDialog';
 import { useAuth } from '@/hooks/use-auth';
 import supabase from '@/lib/supabase';
+import { prefetchOffersIndex, clearOffersCache, prefetchOffersBatch } from '@/utils/offers';
 import { loadModels as dbLoadModels, insertModel as dbInsertModel, updateModel as dbUpdateModel, deleteModel as dbDeleteModel } from '@/utils/models';
 
 const Index = () => {
   const { toast } = useToast();
   const { t } = useTranslation();
   const { user, signedIn } = useAuth();
+  const navigate = useNavigate();
   const [models, setModels] = useState<GundamModel[]>([]);
   const [filteredModels, setFilteredModels] = useState<GundamModel[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,21 +35,38 @@ const Index = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingModel, setEditingModel] = useState<GundamModel | undefined>();
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [offersModel, setOffersModel] = useState<GundamModel | null>(null);
+  const [showAuth, setShowAuth] = useState(false);
+
+  // If the user signs out while on this page, send them back to home
+  useEffect(() => {
+    if (!signedIn) {
+      navigate('/');
+    }
+  }, [signedIn, navigate]);
 
   // Load models from DB (if signed in) on mount or auth change. Otherwise show nothing.
   useEffect(() => {
     (async () => {
       if (signedIn && user) {
         try {
+          // Warm the offers index immediately after login so cards can compute averages
+          await prefetchOffersIndex();
           const mapped = await dbLoadModels(user.sub);
           setModels(mapped);
           setFilteredModels(mapped);
+          // Kick off background prefetch for each kit's offers (non-blocking)
+          void prefetchOffersBatch(
+            mapped.map(m => ({ name: m.name, grade: m.grade as any, imageUrl: m.imageUrl })),
+            4
+          );
           return;
         } catch (e) {
           console.warn('Failed to load models from Supabase', e);
         }
       } else {
         // When not signed in, do not show any kits (privacy/require-login)
+        clearOffersCache();
         setModels([]);
         setFilteredModels([]);
       }
@@ -57,6 +80,17 @@ const Index = () => {
       try { localStorage.setItem('gundam-models', JSON.stringify(models)); } catch (e) {}
     })();
   }, [models]);
+
+  // Background prefetch of offers whenever models list changes (and user is signed in)
+  useEffect(() => {
+    if (!signedIn || !user) return;
+    if (!models || models.length === 0) return;
+    // fire-and-forget prefetch; keep concurrency modest
+    void prefetchOffersBatch(
+      models.map(m => ({ name: m.name, grade: m.grade as any, imageUrl: m.imageUrl })),
+      4
+    );
+  }, [models, signedIn, user]);
 
   // Filter models based on search and filters
   useEffect(() => {
@@ -174,8 +208,9 @@ const Index = () => {
               </h1>
             </div>
             {/* header actions (sign in, etc.) — floating Add Model button moved to bottom-left */}
-            <div className="ml-4">
+            <div className="ml-4 flex items-center gap-2">
               <GoogleLoginButton />
+              <DiscordLoginButton />
             </div>
           </div>
         </div>
@@ -253,7 +288,7 @@ const Index = () => {
               }
             </p>
             {models.length === 0 && (
-              <Button onClick={() => setShowForm(true)}>
+              <Button onClick={() => (signedIn ? setShowForm(true) : setShowAuth(true))}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Your First Model
               </Button>
@@ -271,6 +306,7 @@ const Index = () => {
                 model={model}
                 onEdit={openEditForm}
                 onDelete={setDeleteId}
+                onOffers={setOffersModel}
               />
             ))}
           </div>
@@ -308,6 +344,21 @@ const Index = () => {
           </ErrorBoundary>
         </DialogContent>
       </Dialog>
+
+      {/* Offers Dialog */}
+      <Dialog open={!!offersModel} onOpenChange={() => setOffersModel(null)}>
+        <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Store prices</DialogTitle>
+          </DialogHeader>
+          {offersModel && (
+            <OffersPanel name={offersModel.name} grade={offersModel.grade as any} imageUrl={offersModel.imageUrl} />
+          )}
+        </DialogContent>
+      </Dialog>
+
+  {/* Auth providers dialog */}
+  <AuthDialog open={showAuth} onOpenChange={setShowAuth} />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>

@@ -4,11 +4,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Star, Edit, Trash2, Calendar, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useEffect, useMemo, useState } from 'react';
+import { findStaticOffersForModel, onOffersCacheUpdate, offersCacheKey, getCachedOffers } from '@/utils/offers';
 
 interface GundamCardProps {
   model: GundamModel;
   onEdit: (model: GundamModel) => void;
   onDelete: (id: string) => void;
+  onOffers?: (model: GundamModel) => void;
 }
 
 const statusColors = {
@@ -19,7 +22,51 @@ const statusColors = {
   'Customized': 'bg-primary text-primary-foreground',
 };
 
-export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
+export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProps) {
+  const [avgUsd, setAvgUsd] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        // Use static index to keep this lightweight; average rounded prices in USD only
+        // Prefer cached live offers if available, else static lookup
+        const key = offersCacheKey(model.name, model.grade as any, model.imageUrl);
+        const cached = getCachedOffers(key);
+        const offers = cached && cached.length > 0
+          ? cached
+          : await findStaticOffersForModel(model.name, model.grade as any, { imageUrl: model.imageUrl });
+        if (cancelled) return;
+        const usdPrices = offers.filter(o => (o.currency || 'USD').toUpperCase() === 'USD').map(o => Math.round(o.price));
+        if (usdPrices.length === 0) {
+          setAvgUsd(null);
+          return;
+        }
+        const avg = usdPrices.reduce((a, b) => a + b, 0) / usdPrices.length;
+        setAvgUsd(Math.round(avg));
+      } catch {
+        if (!cancelled) setAvgUsd(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [model.name, model.grade, model.imageUrl]);
+
+  // React to background cache updates (from login prefetch) and recompute
+  useEffect(() => {
+    const key = offersCacheKey(model.name, model.grade as any, model.imageUrl);
+    const off = onOffersCacheUpdate((changed) => {
+      if (changed !== key) return;
+      const offers = getCachedOffers(key) || [];
+      const usdPrices = offers.filter(o => (o.currency || 'USD').toUpperCase() === 'USD').map(o => Math.round(o.price));
+      if (usdPrices.length === 0) {
+        setAvgUsd(null);
+        return;
+      }
+      const avg = usdPrices.reduce((a, b) => a + b, 0) / usdPrices.length;
+      setAvgUsd(Math.round(avg));
+    });
+    return () => { off(); };
+  }, [model.name, model.grade, model.imageUrl]);
   const renderStars = () => {
     if (!model.rating) return null;
     
@@ -89,6 +136,12 @@ export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
                 <span>${model.price}</span>
               </div>
             )}
+            {avgUsd !== null && (
+              <div className="ml-auto flex items-center gap-1 text-foreground/80">
+                <DollarSign className="h-3 w-3" />
+                <span>Avg ${avgUsd}</span>
+              </div>
+            )}
             {model.completionDate && (
               <div className="flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
@@ -105,12 +158,21 @@ export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
         )}
       </CardContent>
       
-      <CardFooter className="p-4 pt-0 flex gap-2">
+      <CardFooter className="p-4 pt-0 flex gap-2 flex-nowrap items-stretch">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onOffers?.(model)}
+          className="flex-1 min-w-0 h-9 sm:h-10 px-2 whitespace-nowrap justify-center hover:bg-accent hover:text-accent-foreground transition-colors"
+        >
+          <DollarSign className="h-4 w-4 mr-1" />
+          Offers
+        </Button>
         <Button
           variant="outline"
           size="sm"
           onClick={() => onEdit(model)}
-          className="flex-1 hover:bg-primary hover:text-primary-foreground transition-colors"
+          className="flex-1 min-w-0 h-9 sm:h-10 px-2 whitespace-nowrap justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
         >
           <Edit className="h-4 w-4 mr-1" />
           Edit
@@ -119,7 +181,7 @@ export function GundamCard({ model, onEdit, onDelete }: GundamCardProps) {
           variant="outline"
           size="sm"
           onClick={() => onDelete(model.id)}
-          className="flex-1 hover:bg-destructive hover:text-destructive-foreground transition-colors"
+          className="flex-1 min-w-0 h-9 sm:h-10 px-2 whitespace-nowrap justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors"
         >
           <Trash2 className="h-4 w-4 mr-1" />
           Delete

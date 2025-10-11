@@ -12,7 +12,7 @@ import { Star, Search, Loader2, Grid } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ImageSelector } from '@/components/ImageSelector';
-import OffersPanel from '@/components/OffersPanel';
+// OffersPanel was moved to a separate dialog; no longer used here
 
 type Props = {
   model?: GundamModel | null;
@@ -199,8 +199,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
         <Textarea value={formData.notes} onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))} />
       </div>
 
-  {/* Store prices panel (sample data via /offers.sample.json; replace with real API later) */}
-  <OffersPanel name={formData.name} grade={formData.grade as GundamGrade} imageUrl={formData.imageUrl} />
+  {/* Offers moved out of the edit form into its own dialog triggered from the card */}
 
       <div>
   <Label>{t('form.image')}</Label>
