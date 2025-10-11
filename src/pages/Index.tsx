@@ -12,8 +12,6 @@ import OffersPanel from '@/components/OffersPanel';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Plus, Search, Grid, List, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import GoogleLoginButton from '@/components/GoogleLoginButton';
-import DiscordLoginButton from '@/components/DiscordLoginButton';
 import AuthDialog from '@/components/AuthDialog';
 import { useAuth } from '@/hooks/use-auth';
 import supabase from '@/lib/supabase';
@@ -200,8 +198,11 @@ const Index = () => {
             </div>
             {/* header actions (sign in, etc.) — floating Add Model button moved to bottom-left */}
             <div className="ml-4 flex items-center gap-2">
-              <GoogleLoginButton />
-              <DiscordLoginButton />
+              {!signedIn && (
+                <Button onClick={() => setShowAuth(true)}>
+                  Sign in
+                </Button>
+              )}
             </div>
           </div>
         </div>
