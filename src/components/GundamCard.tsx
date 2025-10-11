@@ -24,12 +24,18 @@ const statusColors = {
 
 export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProps) {
   const [avgUsd, setAvgUsd] = useState<number | null>(null);
+  const usdFmt = useMemo(() => new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }), []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        // Use static index to keep this lightweight; average rounded prices in USD only
+        // Use static index to keep this lightweight; compute true average in USD only
         // Prefer cached live offers if available, else static lookup
         const key = offersCacheKey(model.name, model.grade as any, model.imageUrl);
         const cached = getCachedOffers(key);
@@ -37,13 +43,16 @@ export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProp
           ? cached
           : await findStaticOffersForModel(model.name, model.grade as any, { imageUrl: model.imageUrl });
         if (cancelled) return;
-        const usdPrices = offers.filter(o => (o.currency || 'USD').toUpperCase() === 'USD').map(o => Math.round(o.price));
+        const usdPrices = offers
+          .filter(o => (o.currency || 'USD').toUpperCase() === 'USD')
+          .map(o => Number(o.price))
+          .filter(n => Number.isFinite(n));
         if (usdPrices.length === 0) {
           setAvgUsd(null);
           return;
         }
-        const avg = usdPrices.reduce((a, b) => a + b, 0) / usdPrices.length;
-        setAvgUsd(Math.round(avg));
+  const avg = usdPrices.reduce((a, b) => a + b, 0) / usdPrices.length;
+  setAvgUsd(avg);
       } catch {
         if (!cancelled) setAvgUsd(null);
       }
@@ -57,13 +66,16 @@ export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProp
     const off = onOffersCacheUpdate((changed) => {
       if (changed !== key) return;
       const offers = getCachedOffers(key) || [];
-      const usdPrices = offers.filter(o => (o.currency || 'USD').toUpperCase() === 'USD').map(o => Math.round(o.price));
+      const usdPrices = offers
+        .filter(o => (o.currency || 'USD').toUpperCase() === 'USD')
+        .map(o => Number(o.price))
+        .filter(n => Number.isFinite(n));
       if (usdPrices.length === 0) {
         setAvgUsd(null);
         return;
       }
-      const avg = usdPrices.reduce((a, b) => a + b, 0) / usdPrices.length;
-      setAvgUsd(Math.round(avg));
+  const avg = usdPrices.reduce((a, b) => a + b, 0) / usdPrices.length;
+  setAvgUsd(avg);
     });
     return () => { off(); };
   }, [model.name, model.grade, model.imageUrl]);
@@ -139,7 +151,7 @@ export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProp
             {avgUsd !== null && (
               <div className="ml-auto flex items-center gap-1 text-foreground/80">
                 <DollarSign className="h-3 w-3" />
-                <span>Avg ${avgUsd}</span>
+                <span>Avg {usdFmt.format(avgUsd)}</span>
               </div>
             )}
             {model.completionDate && (
