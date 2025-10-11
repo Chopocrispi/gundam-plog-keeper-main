@@ -86,7 +86,7 @@ export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProp
   };
 
   return (
-    <Card className="group overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 bg-gradient-to-br from-card to-card/80">
+  <Card className="group overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 bg-gradient-to-br from-card to-card/80 flex flex-col h-full">
       <CardHeader className="p-0">
         <div className="relative overflow-hidden rounded-t-xl bg-card">
           {model.imageUrl ? (
@@ -114,7 +114,7 @@ export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProp
         </div>
       </CardHeader>
       
-      <CardContent className="p-4 space-y-3">
+  <CardContent className="p-4 space-y-3 flex-1">
         <div>
           <h3 className="font-bold text-lg leading-tight line-clamp-2 text-foreground group-hover:text-primary transition-colors">
             {model.name}
@@ -158,7 +158,7 @@ export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProp
         )}
       </CardContent>
       
-  <CardFooter className="p-4 pt-2 flex gap-1 flex-nowrap items-stretch border-t" style={{ borderColor: 'hsl(var(--border))' }}>
+  <CardFooter className="p-4 pt-2 flex gap-1 flex-nowrap items-stretch border-t mt-auto" style={{ borderColor: 'hsl(var(--border))' }}>
         <Button
           variant="outline"
           size="sm"
