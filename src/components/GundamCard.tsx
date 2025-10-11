@@ -88,12 +88,12 @@ export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProp
   return (
     <Card className="group overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 bg-gradient-to-br from-card to-card/80">
       <CardHeader className="p-0">
-        <div className="relative overflow-hidden bg-muted/20 flex items-center justify-center max-h-64 min-h-[12rem] sm:max-h-72">
+        <div className="relative overflow-hidden rounded-t-xl bg-card flex items-center justify-center max-h-64 min-h-[12rem] sm:max-h-72">
           {model.imageUrl ? (
             <img
               src={model.imageUrl}
               alt={model.name}
-              className="w-full h-full object-contain block transition-transform duration-300 group-hover:scale-105"
+              className="w-full h-full object-cover block transition-transform duration-300 group-hover:scale-105"
               onError={(e) => {
                 e.currentTarget.src = '/placeholder.svg';
               }}
@@ -158,32 +158,32 @@ export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProp
         )}
       </CardContent>
       
-      <CardFooter className="p-4 pt-0 flex gap-2 flex-nowrap items-stretch">
+      <CardFooter className="p-4 pt-3 flex gap-3 flex-nowrap items-stretch border-t" style={{ borderColor: 'hsl(var(--border))' }}>
         <Button
           variant="outline"
           size="sm"
           onClick={() => onOffers?.(model)}
-          className="flex-1 min-w-0 h-9 sm:h-10 px-2 whitespace-nowrap justify-center hover:bg-accent hover:text-accent-foreground transition-colors"
+          className="flex-1 min-w-0 h-10 px-3 whitespace-nowrap justify-center hover:bg-accent hover:text-accent-foreground transition-colors"
         >
-          <DollarSign className="h-4 w-4 mr-1" />
+          <DollarSign className="h-4 w-4 mr-2" />
           Offers
         </Button>
         <Button
           variant="outline"
           size="sm"
           onClick={() => onEdit(model)}
-          className="flex-1 min-w-0 h-9 sm:h-10 px-2 whitespace-nowrap justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
+          className="flex-1 min-w-0 h-10 px-3 whitespace-nowrap justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
         >
-          <Edit className="h-4 w-4 mr-1" />
+          <Edit className="h-4 w-4 mr-2" />
           Edit
         </Button>
         <Button
           variant="outline"
           size="sm"
           onClick={() => onDelete(model.id)}
-          className="flex-1 min-w-0 h-9 sm:h-10 px-2 whitespace-nowrap justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors"
+          className="flex-1 min-w-0 h-10 px-3 whitespace-nowrap justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors"
         >
-          <Trash2 className="h-4 w-4 mr-1" />
+          <Trash2 className="h-4 w-4 mr-2" />
           Delete
         </Button>
       </CardFooter>
