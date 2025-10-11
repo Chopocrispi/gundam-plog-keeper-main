@@ -6,7 +6,6 @@ import { Star, Edit, Trash2, Calendar, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect, useMemo, useState } from 'react';
 import { findStaticOffersForModel, onOffersCacheUpdate, offersCacheKey, getCachedOffers } from '@/utils/offers';
-import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 interface GundamCardProps {
   model: GundamModel;
@@ -89,18 +88,18 @@ export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProp
   return (
     <Card className="group overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 bg-gradient-to-br from-card to-card/80">
       <CardHeader className="p-0">
-        <AspectRatio ratio={16 / 9} className="relative overflow-hidden rounded-t-xl bg-card">
+        <div className="relative overflow-hidden rounded-t-xl bg-card">
           {model.imageUrl ? (
             <img
               src={model.imageUrl}
               alt={model.name}
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              className="block w-full h-auto align-middle"
               onError={(e) => {
                 e.currentTarget.src = '/placeholder.svg';
               }}
             />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground bg-gradient-to-br from-muted/20 to-muted/40">
+            <div className="w-full py-8 flex items-center justify-center text-muted-foreground bg-gradient-to-br from-muted/20 to-muted/40">
               <div className="text-center">
                 <div className="text-4xl mb-2">🤖</div>
                 <div className="text-sm">No Image</div>
@@ -112,7 +111,7 @@ export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProp
               {model.buildStatus}
             </Badge>
           </div>
-        </AspectRatio>
+        </div>
       </CardHeader>
       
       <CardContent className="p-4 space-y-3">
@@ -159,32 +158,32 @@ export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProp
         )}
       </CardContent>
       
-      <CardFooter className="p-4 pt-2 flex gap-2 flex-nowrap items-stretch border-t" style={{ borderColor: 'hsl(var(--border))' }}>
+      <CardFooter className="p-4 pt-2 flex gap-1 flex-nowrap items-stretch border-t" style={{ borderColor: 'hsl(var(--border))' }}>
         <Button
           variant="outline"
           size="sm"
           onClick={() => onOffers?.(model)}
-          className="flex-1 min-w-0 h-9 px-2.5 whitespace-nowrap justify-center hover:bg-accent hover:text-accent-foreground transition-colors"
+          className="flex-1 min-w-0 h-9 px-2 whitespace-nowrap justify-center hover:bg-accent hover:text-accent-foreground transition-colors"
         >
-          <DollarSign className="h-4 w-4 mr-1.5" />
+          <DollarSign className="h-4 w-4 mr-1" />
           Offers
         </Button>
         <Button
           variant="outline"
           size="sm"
           onClick={() => onEdit(model)}
-          className="flex-1 min-w-0 h-9 px-2.5 whitespace-nowrap justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
+          className="flex-1 min-w-0 h-9 px-2 whitespace-nowrap justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
         >
-          <Edit className="h-4 w-4 mr-1.5" />
+          <Edit className="h-4 w-4 mr-1" />
           Edit
         </Button>
         <Button
           variant="outline"
           size="sm"
           onClick={() => onDelete(model.id)}
-          className="flex-1 min-w-0 h-9 px-2.5 whitespace-nowrap justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors"
+          className="flex-1 min-w-0 h-9 px-2 whitespace-nowrap justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors"
         >
-          <Trash2 className="h-4 w-4 mr-1.5" />
+          <Trash2 className="h-4 w-4 mr-1" />
           Delete
         </Button>
       </CardFooter>
