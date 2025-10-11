@@ -12,10 +12,10 @@ export function GoogleLoginButton() {
   }
 
   return (
-    <div className="flex items-center gap-2 max-w-full min-w-0 flex-nowrap">
+    <div className="flex items-center gap-2 w-full min-w-0 flex-nowrap overflow-hidden">
       {user?.picture && <img src={user.picture} className="h-6 w-6 rounded-full" alt={user?.name} />}
       <div
-        className="text-sm truncate flex-1 min-w-0 max-w-[45vw] sm:max-w-none"
+        className="text-sm truncate flex-1 min-w-0 overflow-hidden"
         title={(user?.name || user?.email) ?? undefined}
       >
         {user?.name || user?.email}
