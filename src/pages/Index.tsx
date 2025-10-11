@@ -203,12 +203,9 @@ const Index = () => {
         <div className="container mx-auto px-4 py-4 sm:py-6">
           <div className="flex items-center justify-between">
             <div>
-              <div className="rounded-md overflow-hidden border" style={{ borderColor: 'hsl(var(--border))' }}>
-                <div className="px-3 py-2" style={{ background: 'hsl(var(--sidebar-primary))' }}>
-                  <span className="font-extrabold tracking-wide" style={{ color: '#fff' }}>Gund</span>
-                  <span className="font-extrabold tracking-wide" style={{ color: 'hsl(var(--gundam-yellow))' }}>app</span>
-                </div>
-              </div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-wide" style={{ color: 'hsl(var(--gundam-red))' }}>
+                Gundapp
+              </h1>
             </div>
             {/* header actions (sign in, etc.) — floating Add Model button moved to bottom-left */}
             <div className="ml-4 flex items-center gap-2">
