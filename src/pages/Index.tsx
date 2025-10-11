@@ -199,13 +199,16 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       {/* Header */}
-      <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-40">
+      <header className="border-b sticky top-0 z-40" style={{ background: 'hsl(var(--sidebar-background))' }}>
         <div className="container mx-auto px-4 py-4 sm:py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-primary to-gundam-red bg-clip-text text-transparent">
-                {t('app.title')}
-              </h1>
+              <div className="rounded-md overflow-hidden border" style={{ borderColor: 'hsl(var(--border))' }}>
+                <div className="px-3 py-2" style={{ background: 'hsl(var(--sidebar-primary))' }}>
+                  <span className="font-extrabold tracking-wide" style={{ color: '#fff' }}>Gund</span>
+                  <span className="font-extrabold tracking-wide" style={{ color: 'hsl(var(--gundam-yellow))' }}>app</span>
+                </div>
+              </div>
             </div>
             {/* header actions (sign in, etc.) — floating Add Model button moved to bottom-left */}
             <div className="ml-4 flex items-center gap-2">
