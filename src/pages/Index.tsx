@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import OffersPanel from '@/components/OffersPanel';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, X, Search, Grid, List, Filter } from 'lucide-react';
+import { Plus, X, Search, Grid, List, Filter, DollarSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/theme-toggle';
 import GoogleLoginButton from '@/components/GoogleLoginButton';
@@ -327,24 +327,26 @@ const Index = () => {
           <div className="floating-add-pulse" />
           {/* Actions revealed above main button (only when open) */}
           {showActions && (
-            <div className="absolute -top-36 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 select-none">
+            <div className="absolute -top-36 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3">
               <Button
-                size="sm"
-                variant="secondary"
+                size="icon"
                 onClick={() => { setShowActions(false); setShowBuy(true); }}
-                className="shadow-md"
-                title="Add to wishlist"
+                className="h-12 w-12 rounded-full p-0 bg-gradient-to-r from-primary to-gundam-red hover:from-primary/90 hover:to-gundam-red/90 text-white shadow-lg"
+                title="Buy"
+                aria-label="Buy"
               >
-                Add to wishlist
+                <DollarSign className="h-5 w-5" />
+                <span className="sr-only">Buy</span>
               </Button>
               <Button
-                size="sm"
-                variant="secondary"
+                size="icon"
                 onClick={() => { setShowActions(false); setShowForm(true); }}
-                className="shadow-md"
-                title="Add to log"
+                className="h-12 w-12 rounded-full p-0 bg-gradient-to-r from-primary to-gundam-red hover:from-primary/90 hover:to-gundam-red/90 text-white shadow-lg"
+                title="Add to collection"
+                aria-label="Add to collection"
               >
-                Add
+                <Plus className="h-5 w-5" />
+                <span className="sr-only">Add to collection</span>
               </Button>
             </div>
           )}
