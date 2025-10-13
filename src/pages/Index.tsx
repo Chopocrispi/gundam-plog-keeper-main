@@ -13,7 +13,6 @@ import OffersPanel from '@/components/OffersPanel';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Plus, Search, Grid, List, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useTheme } from '@/hooks/use-theme';
 import { ThemeToggle } from '@/components/theme-toggle';
 import GoogleLoginButton from '@/components/GoogleLoginButton';
 import DiscordLoginButton from '@/components/DiscordLoginButton';
@@ -27,15 +26,6 @@ const Index = () => {
   const { toast } = useToast();
   const { t } = useTranslation();
   const { user, signedIn } = useAuth();
-  // Theme debug helper
-  function ThemeDebug() {
-    const { theme } = useTheme();
-    return (
-      <div className="text-sm text-muted-foreground px-2 py-0.5 rounded-md border" style={{ borderColor: 'hsl(var(--border))' }}>
-        theme: {theme}
-      </div>
-    )
-  }
   const navigate = useNavigate();
   const [models, setModels] = useState<GundamModel[]>([]);
   const [filteredModels, setFilteredModels] = useState<GundamModel[]>([]);
@@ -218,8 +208,7 @@ const Index = () => {
                 <h1 className="text-2xl sm:text-3xl font-extrabold tracking-wide" style={{ color: 'hsl(var(--gundam-red))' }}>
                   Gundapp
                 </h1>
-                {/* Debug: show current theme value */}
-                <ThemeDebug />
+                {/* Theme toggle to switch between Light/Dark */}
               </div>
             </div>
             {/* header actions (sign in, etc.) — floating Add Model button moved to bottom-left */}
