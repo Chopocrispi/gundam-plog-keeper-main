@@ -38,7 +38,8 @@ export type BuildStatus =
   | 'In Progress'
   | 'Built'
   | 'Painted'
-  | 'Customized';
+  | 'Customized'
+  | 'toBuy';
 
 export interface GunplaDBResponse {
   success: boolean;

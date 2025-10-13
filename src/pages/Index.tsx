@@ -17,6 +17,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import GoogleLoginButton from '@/components/GoogleLoginButton';
 import DiscordLoginButton from '@/components/DiscordLoginButton';
 import AuthDialog from '@/components/AuthDialog';
+import BuyDialog from '@/components/BuyDialog';
 import { useAuth } from '@/hooks/use-auth';
 import supabase from '@/lib/supabase';
 import { prefetchOffersIndex, clearOffersCache, prefetchOffersBatch } from '@/utils/offers';
@@ -34,6 +35,7 @@ const Index = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showForm, setShowForm] = useState(false);
+  const [showBuy, setShowBuy] = useState(false);
   const [editingModel, setEditingModel] = useState<GundamModel | undefined>();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [offersModel, setOffersModel] = useState<GundamModel | null>(null);
@@ -260,6 +262,7 @@ const Index = () => {
               <SelectItem value="Built">Built</SelectItem>
               <SelectItem value="Painted">Painted</SelectItem>
               <SelectItem value="Customized">Customized</SelectItem>
+              <SelectItem value="toBuy">To Buy</SelectItem>
             </SelectContent>
           </Select>
 
@@ -318,21 +321,43 @@ const Index = () => {
         )}
       </div>
 
-      {/* Add/Edit Form Dialog */}
-  {/* Floating Add Model button (bottom-right) */}
+      {/* Floating Speed Dial (Add / Buy) */}
       <div className="fixed right-4 bottom-4 z-50">
         <div className="relative h-14 w-14">
           <div className="floating-add-pulse" />
+          {/* Actions revealed above main button */}
+          <div className="absolute -top-36 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none select-none">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setShowBuy(true)}
+              className="pointer-events-auto shadow-md"
+              title="Buy a kit"
+            >
+              Buy
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setShowForm(true)}
+              className="pointer-events-auto shadow-md"
+              title="Add to log"
+            >
+              Add
+            </Button>
+          </div>
+          {/* Main trigger is always visible */}
           <Button
-            onClick={() => setShowForm(true)}
-            aria-label="Add model"
-            title="Add model"
+            aria-label="Open actions"
+            title="Open actions"
             className="floating-add-btn absolute inset-0 h-14 w-14 rounded-full p-0 bg-gradient-to-r from-primary to-gundam-red hover:from-primary/90 hover:to-gundam-red/90 shadow-lg flex items-center justify-center"
           >
             <Plus className="h-5 w-5" />
           </Button>
         </div>
       </div>
+
+      {/* Add/Edit Form Dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="max-w-[95vw] sm:max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -349,6 +374,33 @@ const Index = () => {
           </ErrorBoundary>
         </DialogContent>
       </Dialog>
+
+      {/* Buy/Search Dialog */}
+      <BuyDialog
+        open={showBuy}
+        onOpenChange={setShowBuy}
+        onAdd={(partial) => {
+          const id = Date.now().toString();
+          const now = new Date().toISOString();
+          const newModel: GundamModel = {
+            id,
+            name: partial.name,
+            series: partial.series || '',
+            grade: partial.grade as any,
+            imageUrl: partial.imageUrl,
+            buildStatus: 'toBuy',
+            createdAt: now,
+            updatedAt: now,
+          } as GundamModel;
+          // Optimistic add
+          setModels(prev => [...prev, newModel]);
+          if (signedIn && user) {
+            void dbInsertModel(newModel, user.sub).then(saved => {
+              setModels(prev => prev.map(m => m.id === id ? saved : m));
+            }).catch(() => {/* ignore */});
+          }
+        }}
+      />
 
       {/* Offers Dialog */}
       <Dialog open={!!offersModel} onOpenChange={() => setOffersModel(null)}>
