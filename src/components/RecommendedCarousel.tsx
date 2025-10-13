@@ -103,7 +103,7 @@ export function RecommendedCarousel({ owned, onWishlist, onAdd }: Props) {
       <Carousel className="w-full">
         <CarouselContent>
           {items.map((it, idx) => (
-            <CarouselItem key={`${it.name}-${idx}`} className="basis-4/5 sm:basis-1/2 md:basis-1/3 lg:basis-1/4">
+            <CarouselItem key={`${it.name}-${idx}`} className="basis-3/5 sm:basis-1/3 md:basis-1/4 lg:basis-1/6 xl:basis-[12.5%] 2xl:basis-[10%]">
               <Card className="group overflow-hidden bg-gradient-to-br from-card to-card/80 flex flex-col h-full">
                 <CardHeader className="p-0">
                   <div className="relative overflow-hidden rounded-t-xl bg-card">
@@ -119,13 +119,13 @@ export function RecommendedCarousel({ owned, onWishlist, onAdd }: Props) {
                     )}
                   </div>
                 </CardHeader>
-                <CardContent className="p-4 space-y-3 flex-1">
+                <CardContent className="p-3 space-y-2 flex-1">
                   <div>
-                    <h4 className="font-bold text-base leading-tight line-clamp-2 text-foreground group-hover:text-primary transition-colors">
+                    <h4 className="font-semibold text-sm leading-tight line-clamp-2 text-foreground group-hover:text-primary transition-colors">
                       {it.name}
                     </h4>
                     <div className="flex items-center justify-between mt-1">
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="text-[10px]">
                         {gradeLabelFromCode(it.grade)}
                       </Badge>
                     </div>
@@ -139,7 +139,7 @@ export function RecommendedCarousel({ owned, onWishlist, onAdd }: Props) {
                       aria-label="Add to Wishlist"
                       onClick={() => onWishlist({ name: it.name, grade: gradeLabelFromCode(it.grade), imageUrl: it.url })}
                     >
-                      <ShoppingCart className="h-4 w-4 mr-0" />
+                      <ShoppingCart className="h-3.5 w-3.5 mr-0" />
                     </Button>
                     <Button
                       variant="outline"
@@ -149,7 +149,7 @@ export function RecommendedCarousel({ owned, onWishlist, onAdd }: Props) {
                       aria-label="Add to collection"
                       onClick={() => onAdd({ name: it.name, grade: gradeLabelFromCode(it.grade), imageUrl: it.url })}
                     >
-                      <Plus className="h-4 w-4 mr-0" />
+                      <Plus className="h-3.5 w-3.5 mr-0" />
                     </Button>
                   </div>
                 </CardContent>
