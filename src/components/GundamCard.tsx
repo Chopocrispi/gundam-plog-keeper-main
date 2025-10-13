@@ -119,11 +119,13 @@ export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProp
               </div>
             </div>
           )}
-          <div className="absolute top-3 right-3">
-            <Badge className={cn("text-xs font-medium", statusColors[model.buildStatus])}>
-              {model.buildStatus}
-            </Badge>
-          </div>
+          {model.buildStatus !== 'toBuy' && (
+            <div className="absolute top-3 right-3">
+              <Badge className={cn("text-xs font-medium", statusColors[model.buildStatus])}>
+                {model.buildStatus}
+              </Badge>
+            </div>
+          )}
         </div>
       </CardHeader>
       
