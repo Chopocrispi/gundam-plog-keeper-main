@@ -113,6 +113,8 @@ export function RecommendedCarousel({ owned, onWishlist, onAdd }: Props) {
         for (const [k, v] of Object.entries(gradeCounts)) gradeWeight[k] = v / totalGrades;
 
         const candidates = (data || []).filter(r => {
+          const code = (r.grade || '').toUpperCase();
+          if (code === 'EG') return false; // Exclude Entry Grade from recommendations
           const label = gradeLabelFromCode(r.grade);
           const key = `${(r.name || '').toLowerCase()}|${label.toLowerCase()}`;
           if (ownedKey.has(key)) return false;
