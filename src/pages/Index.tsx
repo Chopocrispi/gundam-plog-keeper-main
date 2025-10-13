@@ -365,18 +365,19 @@ const Index = () => {
           </div>
         ) : (
           <div className={
-            viewMode === 'grid' 
-              ? "grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6"
+            viewMode === 'grid'
+              ? "columns-1 xs:columns-2 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 sm:gap-6 [column-fill:_balance]"
               : "space-y-4"
           }>
             {filteredModels.map((model) => (
-              <GundamCard
-                key={model.id}
-                model={model}
-                onEdit={openEditForm}
-                onDelete={setDeleteId}
-                onOffers={setOffersModel}
-              />
+              <div key={model.id} className="mb-4 break-inside-avoid">
+                <GundamCard
+                  model={model}
+                  onEdit={openEditForm}
+                  onDelete={setDeleteId}
+                  onOffers={setOffersModel}
+                />
+              </div>
             ))}
           </div>
         )}
