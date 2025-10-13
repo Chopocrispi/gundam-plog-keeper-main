@@ -13,6 +13,7 @@ import OffersPanel from '@/components/OffersPanel';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Plus, Search, Grid, List, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { ThemeToggle } from '@/components/theme-toggle';
 import GoogleLoginButton from '@/components/GoogleLoginButton';
 import DiscordLoginButton from '@/components/DiscordLoginButton';
 import AuthDialog from '@/components/AuthDialog';
@@ -209,6 +210,7 @@ const Index = () => {
             </div>
             {/* header actions (sign in, etc.) — floating Add Model button moved to bottom-left */}
             <div className="ml-4 flex items-center gap-2 min-w-0 flex-none max-w-[60vw] overflow-hidden">
+              <ThemeToggle />
               <GoogleLoginButton />
               <DiscordLoginButton />
             </div>
