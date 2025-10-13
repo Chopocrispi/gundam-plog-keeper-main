@@ -18,9 +18,11 @@ type Props = {
   model?: GundamModel | null;
   onSubmit: (data: Omit<GundamModel, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onCancel: () => void;
+  /** When true, hides the Build Status selector (useful for Buy flow). */
+  hideBuildStatus?: boolean;
 };
 
-export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
+export const GundamForm = ({ model, onSubmit, onCancel, hideBuildStatus = false }: Props) => {
   const { toast } = useToast();
   const { t } = useTranslation();
 
@@ -34,7 +36,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
   }));
 
   const [isSearchingImage, setIsSearchingImage] = useState(false);
-  const [imageOptions, setImageOptions] = useState<string[]>([]);
+  const [imageOptions, setImageOptions] = useState<Array<string | { url: string; name?: string; grade?: string }>>([]);
   const [showImageSelector, setShowImageSelector] = useState(false);
   const latestSearchRef = useRef(0);
   // series is now free-text; user types it manually
@@ -91,11 +93,11 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
         .split(' ');
       const keywords = rawTokens.filter(w => w.length > 1 && !stop.has(w));
 
-  const urls = await searchGunplaImagesByKeywords(keywords, formData.grade);
+  const metas = await searchGunplaImagesByKeywords(keywords, formData.grade);
       if (mySearchId !== latestSearchRef.current) return; // stale
-      if (urls.length > 0) {
+      if (metas.length > 0) {
         // Populate options; optionally auto-open grid on background lookups
-        setImageOptions(urls);
+        setImageOptions(metas);
         if (opts?.autoOpen) {
           setShowImageSelector(true);
         }
@@ -178,21 +180,24 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
         </div>
       </div>
 
-      <div>
-  <Label>{t('form.buildStatus')}</Label>
-  <Select value={formData.buildStatus} onValueChange={v => setFormData(prev => ({ ...prev, buildStatus: v as BuildStatus }))}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Unbuilt">Unbuilt</SelectItem>
-            <SelectItem value="In Progress">In Progress</SelectItem>
-            <SelectItem value="Built">Built</SelectItem>
-            <SelectItem value="Painted">Painted</SelectItem>
-            <SelectItem value="Customized">Customized</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {!hideBuildStatus && (
+        <div>
+          <Label>{t('form.buildStatus')}</Label>
+          <Select value={formData.buildStatus} onValueChange={v => setFormData(prev => ({ ...prev, buildStatus: v as BuildStatus }))}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Unbuilt">Unbuilt</SelectItem>
+              <SelectItem value="In Progress">In Progress</SelectItem>
+              <SelectItem value="Built">Built</SelectItem>
+              <SelectItem value="Painted">Painted</SelectItem>
+              <SelectItem value="Customized">Customized</SelectItem>
+              <SelectItem value="toBuy">Wishlist</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <div>
   <Label>{t('form.notes')}</Label>
@@ -228,7 +233,13 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
             <ImageSelector
               imageOptions={imageOptions}
               selectedImage={formData.imageUrl}
-              onImageSelect={url => setFormData(prev => ({ ...prev, imageUrl: url }))}
+              onImageSelect={(url, meta) => {
+                setFormData(prev => ({
+                  ...prev,
+                  imageUrl: url,
+                  name: meta?.name ? meta.name : prev.name,
+                }));
+              }}
               onClose={() => { setShowImageSelector(false); setImageOptions([]); }}
             />
           </div>

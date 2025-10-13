@@ -11,14 +11,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import OffersPanel from '@/components/OffersPanel';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Search, Grid, List, Filter } from 'lucide-react';
+import { Plus, X, Search, Grid, List, Filter, DollarSign, ShoppingCart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { ThemeToggle } from '@/components/theme-toggle';
 import GoogleLoginButton from '@/components/GoogleLoginButton';
 import DiscordLoginButton from '@/components/DiscordLoginButton';
 import AuthDialog from '@/components/AuthDialog';
+import BuyDialog from '@/components/BuyDialog';
 import { useAuth } from '@/hooks/use-auth';
 import supabase from '@/lib/supabase';
 import { prefetchOffersIndex, clearOffersCache, prefetchOffersBatch } from '@/utils/offers';
+import RecommendedCarousel from '@/components/RecommendedCarousel';
+import { Separator } from '@/components/ui/separator';
 import { loadModels as dbLoadModels, insertModel as dbInsertModel, updateModel as dbUpdateModel, deleteModel as dbDeleteModel } from '@/utils/models';
 
 const Index = () => {
@@ -33,10 +37,13 @@ const Index = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showForm, setShowForm] = useState(false);
+  const [showBuy, setShowBuy] = useState(false);
+  const [showActions, setShowActions] = useState(false);
   const [editingModel, setEditingModel] = useState<GundamModel | undefined>();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [offersModel, setOffersModel] = useState<GundamModel | null>(null);
   const [showAuth, setShowAuth] = useState(false);
+  const [showToBuy, setShowToBuy] = useState(false);
 
   // If the user signs out while on this page, send them back to home
   useEffect(() => {
@@ -111,6 +118,9 @@ const Index = () => {
     if (filterStatus !== 'all') {
       filtered = filtered.filter(model => model.buildStatus === filterStatus);
     }
+
+    // Always exclude 'toBuy' kits from the main log
+    filtered = filtered.filter(model => model.buildStatus !== 'toBuy');
 
     setFilteredModels(filtered);
   }, [models, searchTerm, filterGrade, filterStatus]);
@@ -203,14 +213,27 @@ const Index = () => {
         <div className="container mx-auto px-4 py-4 sm:py-6">
           <div className="flex items-center justify-between gap-2 flex-nowrap">
             <div className="min-w-0 flex-1">
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-wide" style={{ color: 'hsl(var(--gundam-red))' }}>
-                Gundapp
-              </h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-wide" style={{ color: 'hsl(var(--gundam-red))' }}>
+                  Gundapp
+                </h1>
+                {/* Theme toggle to switch between Light/Dark */}
+              </div>
             </div>
             {/* header actions (sign in, etc.) — floating Add Model button moved to bottom-left */}
             <div className="ml-4 flex items-center gap-2 min-w-0 flex-none max-w-[60vw] overflow-hidden">
+              <ThemeToggle />
               <GoogleLoginButton />
               <DiscordLoginButton />
+              <Button
+                variant="outline"
+                size="icon"
+                title="Wishlist"
+                aria-label="Wishlist"
+                onClick={() => setShowToBuy(true)}
+              >
+                <ShoppingCart className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>
@@ -276,6 +299,8 @@ const Index = () => {
           </div>
         </div>
 
+        
+
         {/* Models Grid/List */}
         {filteredModels.length === 0 ? (
           <div className="text-center py-10 sm:py-12">
@@ -296,38 +321,114 @@ const Index = () => {
           </div>
         ) : (
           <div className={
-            viewMode === 'grid' 
-              ? "grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6"
+            viewMode === 'grid'
+              ? "columns-1 xs:columns-2 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 sm:gap-6 [column-fill:_balance]"
               : "space-y-4"
           }>
             {filteredModels.map((model) => (
-              <GundamCard
-                key={model.id}
-                model={model}
-                onEdit={openEditForm}
-                onDelete={setDeleteId}
-                onOffers={setOffersModel}
-              />
+              <div key={model.id} className="mb-4 break-inside-avoid">
+                <GundamCard
+                  model={model}
+                  onEdit={openEditForm}
+                  onDelete={setDeleteId}
+                  onOffers={setOffersModel}
+                />
+              </div>
             ))}
           </div>
         )}
+
+        {/* Divider and Recommended carousel below the main list */}
+        <Separator className="my-6" />
+        <RecommendedCarousel
+          owned={models}
+          onWishlist={({ name, grade, imageUrl }) => {
+            const id = Date.now().toString();
+            const now = new Date().toISOString();
+            const newModel: GundamModel = {
+              id,
+              name,
+              series: '',
+              grade: grade as any,
+              imageUrl: imageUrl || '',
+              buildStatus: 'toBuy' as any,
+              notes: '',
+              createdAt: now,
+              updatedAt: now,
+            } as GundamModel;
+            setModels(prev => [...prev, newModel]);
+            if (signedIn && user) {
+              void dbInsertModel(newModel, user.sub).then(saved => {
+                setModels(prev => prev.map(m => m.id === id ? saved : m));
+              }).catch(() => {/* ignore */});
+            }
+          }}
+          onAdd={({ name, grade, imageUrl }) => {
+            const id = Date.now().toString();
+            const now = new Date().toISOString();
+            const newModel: GundamModel = {
+              id,
+              name,
+              series: '',
+              grade: grade as any,
+              imageUrl: imageUrl || '',
+              buildStatus: 'Built' as any,
+              notes: '',
+              createdAt: now,
+              updatedAt: now,
+            } as GundamModel;
+            setModels(prev => [...prev, newModel]);
+            if (signedIn && user) {
+              void dbInsertModel(newModel, user.sub).then(saved => {
+                setModels(prev => prev.map(m => m.id === id ? saved : m));
+              }).catch(() => {/* ignore */});
+            }
+          }}
+        />
       </div>
 
-      {/* Add/Edit Form Dialog */}
-  {/* Floating Add Model button (bottom-right) */}
+      {/* Floating Speed Dial (Add / Buy) */}
       <div className="fixed right-4 bottom-4 z-50">
         <div className="relative h-14 w-14">
           <div className="floating-add-pulse" />
+          {/* Actions revealed above main button (only when open) */}
+          {showActions && (
+            <div className="absolute -top-36 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3">
+              <Button
+                size="icon"
+                onClick={() => { setShowActions(false); setShowBuy(true); }}
+                className="h-12 w-12 rounded-full p-0 bg-gradient-to-r from-primary to-gundam-red hover:from-primary/90 hover:to-gundam-red/90 text-white shadow-lg"
+                title="Buy"
+                aria-label="Buy"
+              >
+                <DollarSign className="h-5 w-5" />
+                <span className="sr-only">Buy</span>
+              </Button>
+              <Button
+                size="icon"
+                onClick={() => { setShowActions(false); setShowForm(true); }}
+                className="h-12 w-12 rounded-full p-0 bg-gradient-to-r from-primary to-gundam-red hover:from-primary/90 hover:to-gundam-red/90 text-white shadow-lg"
+                title="Add to collection"
+                aria-label="Add to collection"
+              >
+                <Plus className="h-5 w-5" />
+                <span className="sr-only">Add to collection</span>
+              </Button>
+            </div>
+          )}
+          {/* Main trigger */}
           <Button
-            onClick={() => setShowForm(true)}
-            aria-label="Add model"
-            title="Add model"
+            aria-label={showActions ? 'Close actions' : 'Open actions'}
+            title={showActions ? 'Close actions' : 'Open actions'}
+            onClick={() => setShowActions(s => !s)}
             className="floating-add-btn absolute inset-0 h-14 w-14 rounded-full p-0 bg-gradient-to-r from-primary to-gundam-red hover:from-primary/90 hover:to-gundam-red/90 shadow-lg flex items-center justify-center"
           >
-            <Plus className="h-5 w-5" />
+            {showActions ? <X className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
           </Button>
         </div>
       </div>
+
+      {/* Add/Edit Form Dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="max-w-[95vw] sm:max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -344,6 +445,59 @@ const Index = () => {
           </ErrorBoundary>
         </DialogContent>
       </Dialog>
+
+      {/* Wishlist Dialog */}
+      <Dialog open={showToBuy} onOpenChange={setShowToBuy}>
+        <DialogContent className="max-w-[95vw] sm:max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Wishlist</DialogTitle>
+          </DialogHeader>
+          {models.filter(m => m.buildStatus === 'toBuy').length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">Your Wishlist is empty.</div>
+          ) : (
+            <div className="columns-1 xs:columns-2 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 sm:gap-6 [column-fill:_balance]">
+              {models.filter(m => m.buildStatus === 'toBuy').map(model => (
+                <div key={model.id} className="mb-4 break-inside-avoid">
+                  <GundamCard
+                    model={model}
+                    onEdit={(m) => { setShowToBuy(false); openEditForm(m); }}
+                    onDelete={setDeleteId}
+                    onOffers={setOffersModel}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Buy/Search Dialog */}
+      <BuyDialog
+        open={showBuy}
+        onOpenChange={setShowBuy}
+        onAdd={(partial) => {
+          const id = Date.now().toString();
+          const now = new Date().toISOString();
+          const newModel: GundamModel = {
+            id,
+            name: partial.name,
+            series: partial.series || '',
+            grade: partial.grade as any,
+            imageUrl: partial.imageUrl,
+            buildStatus: partial.buildStatus as any,
+            notes: partial.notes,
+            createdAt: now,
+            updatedAt: now,
+          } as GundamModel;
+          // Optimistic add
+          setModels(prev => [...prev, newModel]);
+          if (signedIn && user) {
+            void dbInsertModel(newModel, user.sub).then(saved => {
+              setModels(prev => prev.map(m => m.id === id ? saved : m));
+            }).catch(() => {/* ignore */});
+          }
+        }}
+      />
 
       {/* Offers Dialog */}
       <Dialog open={!!offersModel} onOpenChange={() => setOffersModel(null)}>

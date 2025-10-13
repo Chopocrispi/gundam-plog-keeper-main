@@ -21,6 +21,21 @@
   </head>
 
   <body>
+    <script>
+      // Apply theme class as early as possible to avoid flashes and ensure global CSS vars are set
+      (function() {
+        try {
+          var storageKey = 'gundam-plog-theme';
+          var stored = localStorage.getItem(storageKey);
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var theme = stored || 'system';
+          var resolved = theme === 'system' ? (prefersDark ? 'dark' : 'light') : theme;
+          var root = document.documentElement;
+          root.classList.remove('light', 'dark');
+          root.classList.add(resolved);
+        } catch (e) { /* no-op */ }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
