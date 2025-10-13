@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { ShoppingCart, Plus } from 'lucide-react';
 import type { GundamModel, GundamGrade } from '@/types/gundam';
 import { supabaseAvailable, getSupabase } from '@/utils/supabase';
@@ -103,29 +104,36 @@ export function RecommendedCarousel({ owned, onWishlist, onAdd }: Props) {
       <Carousel className="w-full">
         <CarouselContent>
           {items.map((it, idx) => (
-            <CarouselItem key={`${it.name}-${idx}`} className="basis-3/5 sm:basis-1/3 md:basis-1/4 lg:basis-1/6 xl:basis-[12.5%] 2xl:basis-[10%]">
+            <CarouselItem key={`${it.name}-${idx}`} className="basis-4/5 sm:basis-1/2 md:basis-1/3 lg:basis-1/4">
               <Card className="group overflow-hidden bg-gradient-to-br from-card to-card/80 flex flex-col h-full">
                 <CardHeader className="p-0">
                   <div className="relative overflow-hidden rounded-t-xl bg-card">
-                    {it.url ? (
-                      <img src={it.url} alt={it.name} className="block w-full h-auto align-middle" onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }} />
-                    ) : (
-                      <div className="w-full py-8 flex items-center justify-center text-muted-foreground bg-gradient-to-br from-muted/20 to-muted/40">
-                        <div className="text-center">
-                          <div className="text-4xl mb-2">🤖</div>
-                          <div className="text-sm">No Image</div>
+                    <AspectRatio ratio={1}>
+                      {it.url ? (
+                        <img
+                          src={it.url}
+                          alt={it.name}
+                          className="object-cover w-full h-full align-middle"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground bg-gradient-to-br from-muted/20 to-muted/40">
+                          <div className="text-center">
+                            <div className="text-4xl mb-2">🤖</div>
+                            <div className="text-sm">No Image</div>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </AspectRatio>
                   </div>
                 </CardHeader>
-                <CardContent className="p-3 space-y-2 flex-1">
+                <CardContent className="p-4 space-y-3 flex-1">
                   <div>
-                    <h4 className="font-semibold text-sm leading-tight line-clamp-2 text-foreground group-hover:text-primary transition-colors">
+                    <h4 className="font-bold text-base leading-tight line-clamp-2 text-foreground group-hover:text-primary transition-colors">
                       {it.name}
                     </h4>
                     <div className="flex items-center justify-between mt-1">
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant="outline" className="text-xs">
                         {gradeLabelFromCode(it.grade)}
                       </Badge>
                     </div>
@@ -139,7 +147,7 @@ export function RecommendedCarousel({ owned, onWishlist, onAdd }: Props) {
                       aria-label="Add to Wishlist"
                       onClick={() => onWishlist({ name: it.name, grade: gradeLabelFromCode(it.grade), imageUrl: it.url })}
                     >
-                      <ShoppingCart className="h-3.5 w-3.5 mr-0" />
+                      <ShoppingCart className="h-4 w-4 mr-0" />
                     </Button>
                     <Button
                       variant="outline"
@@ -149,7 +157,7 @@ export function RecommendedCarousel({ owned, onWishlist, onAdd }: Props) {
                       aria-label="Add to collection"
                       onClick={() => onAdd({ name: it.name, grade: gradeLabelFromCode(it.grade), imageUrl: it.url })}
                     >
-                      <Plus className="h-3.5 w-3.5 mr-0" />
+                      <Plus className="h-4 w-4 mr-0" />
                     </Button>
                   </div>
                 </CardContent>
