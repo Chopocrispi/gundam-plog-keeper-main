@@ -181,7 +181,7 @@ export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProp
           className="flex-1 min-w-0 h-9 px-2 whitespace-nowrap justify-center hover:bg-accent hover:text-accent-foreground transition-colors"
         >
           <DollarSign className="h-4 w-4 mr-0" />
-          Offers
+          
         </Button>
         <Button
           variant="outline"
@@ -190,7 +190,7 @@ export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProp
           className="flex-1 min-w-0 h-9 px-2 whitespace-nowrap justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
         >
           <Edit className="h-4 w-4 mr-0" />
-          Edit
+          
         </Button>
         <Button
           variant="outline"
@@ -199,7 +199,7 @@ export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProp
           className="flex-1 min-w-0 h-9 px-2 whitespace-nowrap justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors"
         >
           <Trash2 className="h-4 w-4 mr-0" />
-          Delete
+          
         </Button>
       </CardFooter>
     </Card>
