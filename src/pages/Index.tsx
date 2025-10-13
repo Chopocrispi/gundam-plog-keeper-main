@@ -342,7 +342,6 @@ const Index = () => {
         <Separator className="my-6" />
         <RecommendedCarousel
           owned={models}
-          filterGrade={filterGrade === 'all' ? undefined : filterGrade}
           onWishlist={({ name, grade, imageUrl }) => {
             const id = Date.now().toString();
             const now = new Date().toISOString();
