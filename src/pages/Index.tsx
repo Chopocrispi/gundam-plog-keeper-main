@@ -21,6 +21,7 @@ import BuyDialog from '@/components/BuyDialog';
 import { useAuth } from '@/hooks/use-auth';
 import supabase from '@/lib/supabase';
 import { prefetchOffersIndex, clearOffersCache, prefetchOffersBatch } from '@/utils/offers';
+import RecommendedCarousel from '@/components/RecommendedCarousel';
 import { loadModels as dbLoadModels, insertModel as dbInsertModel, updateModel as dbUpdateModel, deleteModel as dbDeleteModel } from '@/utils/models';
 
 const Index = () => {
@@ -332,6 +333,52 @@ const Index = () => {
             ))}
           </div>
         )}
+        {/* Recommended carousel below the main list */}
+        <RecommendedCarousel
+          owned={models}
+          onWishlist={({ name, grade, imageUrl }) => {
+            const id = Date.now().toString();
+            const now = new Date().toISOString();
+            const newModel: GundamModel = {
+              id,
+              name,
+              series: '',
+              grade: grade as any,
+              imageUrl: imageUrl || '',
+              buildStatus: 'toBuy' as any,
+              notes: '',
+              createdAt: now,
+              updatedAt: now,
+            } as GundamModel;
+            setModels(prev => [...prev, newModel]);
+            if (signedIn && user) {
+              void dbInsertModel(newModel, user.sub).then(saved => {
+                setModels(prev => prev.map(m => m.id === id ? saved : m));
+              }).catch(() => {/* ignore */});
+            }
+          }}
+          onAdd={({ name, grade, imageUrl }) => {
+            const id = Date.now().toString();
+            const now = new Date().toISOString();
+            const newModel: GundamModel = {
+              id,
+              name,
+              series: '',
+              grade: grade as any,
+              imageUrl: imageUrl || '',
+              buildStatus: 'Unbuilt' as any,
+              notes: '',
+              createdAt: now,
+              updatedAt: now,
+            } as GundamModel;
+            setModels(prev => [...prev, newModel]);
+            if (signedIn && user) {
+              void dbInsertModel(newModel, user.sub).then(saved => {
+                setModels(prev => prev.map(m => m.id === id ? saved : m));
+              }).catch(() => {/* ignore */});
+            }
+          }}
+        />
       </div>
 
       {/* Floating Speed Dial (Add / Buy) */}
