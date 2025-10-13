@@ -190,6 +190,7 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
             <SelectItem value="Built">Built</SelectItem>
             <SelectItem value="Painted">Painted</SelectItem>
             <SelectItem value="Customized">Customized</SelectItem>
+            <SelectItem value="toBuy">To Buy</SelectItem>
           </SelectContent>
         </Select>
       </div>

@@ -393,7 +393,8 @@ const Index = () => {
             series: partial.series || '',
             grade: partial.grade as any,
             imageUrl: partial.imageUrl,
-            buildStatus: 'toBuy',
+            buildStatus: partial.buildStatus as any,
+            notes: partial.notes,
             createdAt: now,
             updatedAt: now,
           } as GundamModel;
