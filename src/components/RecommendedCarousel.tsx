@@ -137,6 +137,10 @@ export function RecommendedCarousel({ owned, onWishlist, onAdd }: Props) {
           } else {
             pool = candidates.filter(r => ownedGradeSet.has((r.grade || '').toUpperCase()));
           }
+          // If the restriction produced no items (e.g., data set lacks that grade), fall back to all candidates
+          if (pool.length === 0) {
+            pool = candidates;
+          }
         }
 
         const scored = pool.map(r => {
