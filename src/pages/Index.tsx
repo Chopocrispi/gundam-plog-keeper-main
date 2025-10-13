@@ -22,6 +22,7 @@ import { useAuth } from '@/hooks/use-auth';
 import supabase from '@/lib/supabase';
 import { prefetchOffersIndex, clearOffersCache, prefetchOffersBatch } from '@/utils/offers';
 import RecommendedCarousel from '@/components/RecommendedCarousel';
+import { Separator } from '@/components/ui/separator';
 import { loadModels as dbLoadModels, insertModel as dbInsertModel, updateModel as dbUpdateModel, deleteModel as dbDeleteModel } from '@/utils/models';
 
 const Index = () => {
@@ -344,6 +345,8 @@ const Index = () => {
             }
           }}
         />
+
+        <Separator className="my-6" />
 
         {/* Models Grid/List */}
         {filteredModels.length === 0 ? (
