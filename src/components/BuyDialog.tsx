@@ -25,7 +25,7 @@ export function BuyDialog({ open, onOpenChange, onAdd }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] sm:max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add to Buy list</DialogTitle>
+          <DialogTitle>Add to Wishlist</DialogTitle>
         </DialogHeader>
 
         <GundamForm

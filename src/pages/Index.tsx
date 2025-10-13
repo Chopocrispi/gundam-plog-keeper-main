@@ -226,8 +226,8 @@ const Index = () => {
               <Button
                 variant="outline"
                 size="icon"
-                title="To Buy list"
-                aria-label="To Buy list"
+                title="Wishlist"
+                aria-label="Wishlist"
                 onClick={() => setShowToBuy(true)}
               >
                 <ShoppingCart className="h-4 w-4" />
@@ -393,14 +393,14 @@ const Index = () => {
         </DialogContent>
       </Dialog>
 
-      {/* To-Buy List Dialog */}
+      {/* Wishlist Dialog */}
       <Dialog open={showToBuy} onOpenChange={setShowToBuy}>
         <DialogContent className="max-w-[95vw] sm:max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>To Buy</DialogTitle>
+            <DialogTitle>Wishlist</DialogTitle>
           </DialogHeader>
           {models.filter(m => m.buildStatus === 'toBuy').length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">No kits in your To Buy list yet.</div>
+            <div className="text-center py-8 text-muted-foreground">Your Wishlist is empty.</div>
           ) : (
             <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
               {models.filter(m => m.buildStatus === 'toBuy').map(model => (
