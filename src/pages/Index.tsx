@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import OffersPanel from '@/components/OffersPanel';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, X, Search, Grid, List, Filter, DollarSign } from 'lucide-react';
+import { Plus, X, Search, Grid, List, Filter, DollarSign, ShoppingCart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/theme-toggle';
 import GoogleLoginButton from '@/components/GoogleLoginButton';
@@ -41,6 +41,7 @@ const Index = () => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [offersModel, setOffersModel] = useState<GundamModel | null>(null);
   const [showAuth, setShowAuth] = useState(false);
+  const [showToBuy, setShowToBuy] = useState(false);
 
   // If the user signs out while on this page, send them back to home
   useEffect(() => {
@@ -115,6 +116,9 @@ const Index = () => {
     if (filterStatus !== 'all') {
       filtered = filtered.filter(model => model.buildStatus === filterStatus);
     }
+
+    // Always exclude 'toBuy' kits from the main log
+    filtered = filtered.filter(model => model.buildStatus !== 'toBuy');
 
     setFilteredModels(filtered);
   }, [models, searchTerm, filterGrade, filterStatus]);
@@ -219,6 +223,15 @@ const Index = () => {
               <ThemeToggle />
               <GoogleLoginButton />
               <DiscordLoginButton />
+              <Button
+                variant="outline"
+                size="icon"
+                title="To Buy list"
+                aria-label="To Buy list"
+                onClick={() => setShowToBuy(true)}
+              >
+                <ShoppingCart className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>
@@ -377,6 +390,30 @@ const Index = () => {
               onCancel={closeForm}
             />
           </ErrorBoundary>
+        </DialogContent>
+      </Dialog>
+
+      {/* To-Buy List Dialog */}
+      <Dialog open={showToBuy} onOpenChange={setShowToBuy}>
+        <DialogContent className="max-w-[95vw] sm:max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>To Buy</DialogTitle>
+          </DialogHeader>
+          {models.filter(m => m.buildStatus === 'toBuy').length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">No kits in your To Buy list yet.</div>
+          ) : (
+            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+              {models.filter(m => m.buildStatus === 'toBuy').map(model => (
+                <GundamCard
+                  key={model.id}
+                  model={model}
+                  onEdit={(m) => { setShowToBuy(false); openEditForm(m); }}
+                  onDelete={setDeleteId}
+                  onOffers={setOffersModel}
+                />
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
