@@ -99,7 +99,7 @@ export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProp
   };
 
   return (
-  <Card className="group overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 bg-gradient-to-br from-card to-card/80 flex flex-col h-full">
+  <Card className="group overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 bg-gradient-to-br from-card to-card/80 flex flex-col">
       <CardHeader className="p-0">
         <div className="relative overflow-hidden rounded-t-xl bg-card">
           {model.imageUrl ? (
