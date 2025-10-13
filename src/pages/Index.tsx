@@ -24,6 +24,7 @@ import { prefetchOffersIndex, clearOffersCache, prefetchOffersBatch } from '@/ut
 import RecommendedCarousel from '@/components/RecommendedCarousel';
 import { Separator } from '@/components/ui/separator';
 import { loadModels as dbLoadModels, insertModel as dbInsertModel, updateModel as dbUpdateModel, deleteModel as dbDeleteModel } from '@/utils/models';
+import AdSlot from '@/components/ads/AdSlot';
 
 const Index = () => {
   const { toast } = useToast();
@@ -299,7 +300,12 @@ const Index = () => {
           </div>
         </div>
 
-        
+        {/* Ad slot (optional) */}
+        {import.meta.env?.VITE_ENABLE_ADS === 'true' && (
+          <div className="my-4 flex justify-center">
+            <AdSlot slot="YOUR_AD_SLOT_ID" format="auto" style={{ width: '100%', maxWidth: 728, minHeight: 90 }} />
+          </div>
+        )}
 
         {/* Models Grid/List */}
         {filteredModels.length === 0 ? (
