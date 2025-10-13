@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { Loader2, Search } from 'lucide-react';
-import { fetchGundamImages } from '@/utils/gunpladb';
+import { fetchGundamImages, searchGunplaImagesByKeywords } from '@/utils/gunpladb';
 import type { GundamGrade } from '@/types/gundam';
 
 type Props = {
@@ -35,24 +35,57 @@ export function BuyDialog({ open, onOpenChange, onAdd }: Props) {
 
   const canAdd = name.trim().length > 0;
 
-  const doSearch = useCallback(async () => {
-    if (!name.trim()) return;
-    const id = ++latestRef.current;
+  const handleManualImageSearch = useCallback(async () => {
+    const modelName = name.trim();
+    if (!modelName) return;
+    const mySearchId = ++latestRef.current;
     setIsSearching(true);
     try {
-      const res = await fetchGundamImages(name.trim(), grade);
-      if (latestRef.current !== id) return;
-      if (res.success && res.imageOptions && res.imageOptions.length > 0) {
-        setImages(res.imageOptions);
-      } else {
-        setImages([]);
+      // Primary: structured image fetch (grade-aware)
+      const result = await fetchGundamImages(modelName, grade);
+      if (mySearchId !== latestRef.current) return; // stale
+      if (result.success && result.imageOptions && result.imageOptions.length > 0) {
+        setImages(result.imageOptions);
+        if (mySearchId === latestRef.current) setIsSearching(false);
+        return;
       }
-    } catch {
-      setImages([]);
-    } finally {
-      if (latestRef.current === id) setIsSearching(false);
+
+      // Fallback: keyword search similar to Add form
+      const stop = new Set([
+        'hg','rg','mg','pg','fm','sd','ms','eg','fg','hirm','mgsd','lm','hy2m',
+        'high','real','master','perfect','full','mechanics','mega','size','super','deformed','grade',
+        'gundam','mobile','suit'
+      ]);
+      const rawTokens = modelName
+        .toLowerCase()
+        .replace(/[^\w\s-]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .split(' ');
+      const keywords = rawTokens.filter(w => w.length > 1 && !stop.has(w));
+
+      const urls = await searchGunplaImagesByKeywords(keywords, grade);
+      if (mySearchId !== latestRef.current) return; // stale
+      setImages(urls);
+      if (mySearchId === latestRef.current) setIsSearching(false);
+    } catch (e) {
+      // fail silently; mirror Add form behavior
+      if (mySearchId === latestRef.current) {
+        setImages([]);
+        setIsSearching(false);
+      }
     }
   }, [name, grade]);
+
+  // Debounced auto-search on name/grade change (match Add form behavior)
+  useEffect(() => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const handle = setTimeout(() => {
+      void handleManualImageSearch();
+    }, 600);
+    return () => clearTimeout(handle);
+  }, [name, grade, handleManualImageSearch]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -101,7 +134,7 @@ export function BuyDialog({ open, onOpenChange, onAdd }: Props) {
               </Select>
             </div>
             <div>
-              <Button onClick={() => void doSearch()} disabled={!name.trim() || isSearching} className="w-full">
+              <Button onClick={() => void handleManualImageSearch()} disabled={!name.trim() || isSearching} className="w-full">
                 {isSearching ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Search className="h-4 w-4 mr-2" />}
                 Search image
               </Button>
