@@ -36,7 +36,7 @@ export const GundamForm = ({ model, onSubmit, onCancel, hideBuildStatus = false 
   }));
 
   const [isSearchingImage, setIsSearchingImage] = useState(false);
-  const [imageOptions, setImageOptions] = useState<string[]>([]);
+  const [imageOptions, setImageOptions] = useState<Array<string | { url: string; name?: string; grade?: string }>>([]);
   const [showImageSelector, setShowImageSelector] = useState(false);
   const latestSearchRef = useRef(0);
   // series is now free-text; user types it manually
@@ -93,11 +93,11 @@ export const GundamForm = ({ model, onSubmit, onCancel, hideBuildStatus = false 
         .split(' ');
       const keywords = rawTokens.filter(w => w.length > 1 && !stop.has(w));
 
-  const urls = await searchGunplaImagesByKeywords(keywords, formData.grade);
+  const metas = await searchGunplaImagesByKeywords(keywords, formData.grade);
       if (mySearchId !== latestSearchRef.current) return; // stale
-      if (urls.length > 0) {
+      if (metas.length > 0) {
         // Populate options; optionally auto-open grid on background lookups
-        setImageOptions(urls);
+        setImageOptions(metas);
         if (opts?.autoOpen) {
           setShowImageSelector(true);
         }
@@ -233,7 +233,13 @@ export const GundamForm = ({ model, onSubmit, onCancel, hideBuildStatus = false 
             <ImageSelector
               imageOptions={imageOptions}
               selectedImage={formData.imageUrl}
-              onImageSelect={url => setFormData(prev => ({ ...prev, imageUrl: url }))}
+              onImageSelect={(url, meta) => {
+                setFormData(prev => ({
+                  ...prev,
+                  imageUrl: url,
+                  name: meta?.name ? meta.name : prev.name,
+                }));
+              }}
               onClose={() => { setShowImageSelector(false); setImageOptions([]); }}
             />
           </div>
