@@ -298,6 +298,53 @@ const Index = () => {
           </div>
         </div>
 
+        {/* Recommended carousel above the main list */}
+        <RecommendedCarousel
+          owned={models}
+          onWishlist={({ name, grade, imageUrl }) => {
+            const id = Date.now().toString();
+            const now = new Date().toISOString();
+            const newModel: GundamModel = {
+              id,
+              name,
+              series: '',
+              grade: grade as any,
+              imageUrl: imageUrl || '',
+              buildStatus: 'toBuy' as any,
+              notes: '',
+              createdAt: now,
+              updatedAt: now,
+            } as GundamModel;
+            setModels(prev => [...prev, newModel]);
+            if (signedIn && user) {
+              void dbInsertModel(newModel, user.sub).then(saved => {
+                setModels(prev => prev.map(m => m.id === id ? saved : m));
+              }).catch(() => {/* ignore */});
+            }
+          }}
+          onAdd={({ name, grade, imageUrl }) => {
+            const id = Date.now().toString();
+            const now = new Date().toISOString();
+            const newModel: GundamModel = {
+              id,
+              name,
+              series: '',
+              grade: grade as any,
+              imageUrl: imageUrl || '',
+              buildStatus: 'Built' as any,
+              notes: '',
+              createdAt: now,
+              updatedAt: now,
+            } as GundamModel;
+            setModels(prev => [...prev, newModel]);
+            if (signedIn && user) {
+              void dbInsertModel(newModel, user.sub).then(saved => {
+                setModels(prev => prev.map(m => m.id === id ? saved : m));
+              }).catch(() => {/* ignore */});
+            }
+          }}
+        />
+
         {/* Models Grid/List */}
         {filteredModels.length === 0 ? (
           <div className="text-center py-10 sm:py-12">
@@ -333,52 +380,6 @@ const Index = () => {
             ))}
           </div>
         )}
-        {/* Recommended carousel below the main list */}
-        <RecommendedCarousel
-          owned={models}
-          onWishlist={({ name, grade, imageUrl }) => {
-            const id = Date.now().toString();
-            const now = new Date().toISOString();
-            const newModel: GundamModel = {
-              id,
-              name,
-              series: '',
-              grade: grade as any,
-              imageUrl: imageUrl || '',
-              buildStatus: 'toBuy' as any,
-              notes: '',
-              createdAt: now,
-              updatedAt: now,
-            } as GundamModel;
-            setModels(prev => [...prev, newModel]);
-            if (signedIn && user) {
-              void dbInsertModel(newModel, user.sub).then(saved => {
-                setModels(prev => prev.map(m => m.id === id ? saved : m));
-              }).catch(() => {/* ignore */});
-            }
-          }}
-          onAdd={({ name, grade, imageUrl }) => {
-            const id = Date.now().toString();
-            const now = new Date().toISOString();
-            const newModel: GundamModel = {
-              id,
-              name,
-              series: '',
-              grade: grade as any,
-              imageUrl: imageUrl || '',
-              buildStatus: 'Unbuilt' as any,
-              notes: '',
-              createdAt: now,
-              updatedAt: now,
-            } as GundamModel;
-            setModels(prev => [...prev, newModel]);
-            if (signedIn && user) {
-              void dbInsertModel(newModel, user.sub).then(saved => {
-                setModels(prev => prev.map(m => m.id === id ? saved : m));
-              }).catch(() => {/* ignore */});
-            }
-          }}
-        />
       </div>
 
       {/* Floating Speed Dial (Add / Buy) */}
