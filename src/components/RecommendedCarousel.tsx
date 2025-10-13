@@ -6,7 +6,6 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import { ShoppingCart, Plus, RefreshCw } from 'lucide-react';
 import type { GundamModel, GundamGrade } from '@/types/gundam';
 import { supabaseAvailable, getSupabase } from '@/utils/supabase';
-import { inferSeriesFromFilename, inferSeriesFromFilenamePrefix } from '@/utils/gunpladb';
 
 type RecItem = {
   name: string;
@@ -67,7 +66,7 @@ function gradeCodeFromLabel(label?: string): string | undefined {
   return undefined;
 }
 
-export function RecommendedCarousel({ owned, onWishlist, onAdd, filterGrade }: Props) {
+export function RecommendedCarousel({ owned, onWishlist, onAdd }: Props) {
   const [items, setItems] = React.useState<RecItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [refreshNonce, setRefreshNonce] = React.useState(0);
@@ -96,6 +95,11 @@ export function RecommendedCarousel({ owned, onWishlist, onAdd, filterGrade }: P
         }
         const ownedKey = new Set(owned.map(m => `${(m.name || '').toLowerCase()}|${(m.grade || '').toLowerCase()}`));
         const ownedNames = new Set(owned.map(m => (m.name || '').toLowerCase()));
+        const ownedGradeSet = new Set<string>();
+        for (const m of owned) {
+          const code = gradeCodeFromLabel(m.grade as string);
+          if (code) ownedGradeSet.add(code);
+        }
 
         // Build preference weights
         const gradeCounts: Record<string, number> = {};
@@ -108,18 +112,6 @@ export function RecommendedCarousel({ owned, onWishlist, onAdd, filterGrade }: P
         const gradeWeight: Record<string, number> = {};
         for (const [k, v] of Object.entries(gradeCounts)) gradeWeight[k] = v / totalGrades;
 
-        const seriesCounts: Record<string, number> = {};
-        for (const m of owned) {
-          const s = (m.series || '').trim().toLowerCase();
-          if (!s) continue;
-          seriesCounts[s] = (seriesCounts[s] || 0) + 1;
-        }
-        const totalSeries = Object.values(seriesCounts).reduce((a, b) => a + b, 0) || 1;
-        const seriesWeight: Record<string, number> = {};
-        for (const [k, v] of Object.entries(seriesCounts)) seriesWeight[k] = v / totalSeries;
-
-        const filterGradeCode = gradeCodeFromLabel(filterGrade);
-
         const candidates = (data || []).filter(r => {
           const label = gradeLabelFromCode(r.grade);
           const key = `${(r.name || '').toLowerCase()}|${label.toLowerCase()}`;
@@ -128,16 +120,17 @@ export function RecommendedCarousel({ owned, onWishlist, onAdd, filterGrade }: P
           return true;
         }) as Array<{ name: string; grade: string; url: string }>;
 
-        const scored = candidates.map(r => {
+        // If the user owns some grades, restrict recommendations to those grades.
+        const pool = ownedGradeSet.size > 0
+          ? candidates.filter(r => ownedGradeSet.has((r.grade || '').toUpperCase()))
+          : candidates;
+
+        const scored = pool.map(r => {
           const code = (r.grade || '').toUpperCase();
           const base = 1;
           const gw = gradeWeight[code] || 0;
-          const file = (r.url || '').split('/').pop() || r.url;
-          const inferredSeries = (inferSeriesFromFilenamePrefix(file) || inferSeriesFromFilename(file) || '').toLowerCase();
-          const sw = seriesWeight[inferredSeries] || 0;
-          const filterBoost = filterGradeCode && code === filterGradeCode ? 2 : 0;
           const jitter = Math.random() * 0.2;
-          return { r, score: base + gw * 2 + sw * 1 + filterBoost + jitter };
+          return { r, score: base + gw * 2 + jitter };
         });
         scored.sort((a, b) => b.score - a.score);
         const picked = scored.slice(0, 16).map(({ r }) => ({ name: r.name, grade: r.grade, url: ensureCdn(r.url) }));
@@ -149,7 +142,7 @@ export function RecommendedCarousel({ owned, onWishlist, onAdd, filterGrade }: P
       }
     })();
     return () => { cancelled = true; };
-  }, [owned, filterGrade, refreshNonce]);
+  }, [owned, refreshNonce]);
   // Keep showing the last recommendations while a manual refresh is in progress
   if (items.length === 0) return null;
 
