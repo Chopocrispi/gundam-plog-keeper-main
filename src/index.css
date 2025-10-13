@@ -62,6 +62,7 @@ All colors MUST be HSL.
   }
   /* RX-78-2 inspired palette (matches email theme) */
   :root {
+    color-scheme: light;
     /* Core surfaces */
     --background: 0 0% 100%; /* armor white */
     --foreground: 223 62% 12%; /* deep navy text (#0b132b) */
@@ -125,6 +126,7 @@ All colors MUST be HSL.
   }
 
   .dark {
+    color-scheme: dark;
     /* Dark mode keeps RX scheme but shifts background */
     --background: 224 61% 14%; /* #0e1a3c */
     --foreground: 226 77% 95%; /* #e6eefc */
