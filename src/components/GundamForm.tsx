@@ -18,9 +18,11 @@ type Props = {
   model?: GundamModel | null;
   onSubmit: (data: Omit<GundamModel, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onCancel: () => void;
+  /** When true, hides the Build Status selector (useful for Buy flow). */
+  hideBuildStatus?: boolean;
 };
 
-export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
+export const GundamForm = ({ model, onSubmit, onCancel, hideBuildStatus = false }: Props) => {
   const { toast } = useToast();
   const { t } = useTranslation();
 
@@ -178,22 +180,24 @@ export const GundamForm = ({ model, onSubmit, onCancel }: Props) => {
         </div>
       </div>
 
-      <div>
-  <Label>{t('form.buildStatus')}</Label>
-  <Select value={formData.buildStatus} onValueChange={v => setFormData(prev => ({ ...prev, buildStatus: v as BuildStatus }))}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Unbuilt">Unbuilt</SelectItem>
-            <SelectItem value="In Progress">In Progress</SelectItem>
-            <SelectItem value="Built">Built</SelectItem>
-            <SelectItem value="Painted">Painted</SelectItem>
-            <SelectItem value="Customized">Customized</SelectItem>
-            <SelectItem value="toBuy">To Buy</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {!hideBuildStatus && (
+        <div>
+          <Label>{t('form.buildStatus')}</Label>
+          <Select value={formData.buildStatus} onValueChange={v => setFormData(prev => ({ ...prev, buildStatus: v as BuildStatus }))}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Unbuilt">Unbuilt</SelectItem>
+              <SelectItem value="In Progress">In Progress</SelectItem>
+              <SelectItem value="Built">Built</SelectItem>
+              <SelectItem value="Painted">Painted</SelectItem>
+              <SelectItem value="Customized">Customized</SelectItem>
+              <SelectItem value="toBuy">To Buy</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <div>
   <Label>{t('form.notes')}</Label>

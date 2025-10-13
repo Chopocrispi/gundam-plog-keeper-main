@@ -30,6 +30,7 @@ export function BuyDialog({ open, onOpenChange, onAdd }: Props) {
 
         <GundamForm
           model={defaultModel}
+          hideBuildStatus
           onSubmit={(data) => { onAdd(data); onOpenChange(false); }}
           onCancel={() => onOpenChange(false)}
         />
