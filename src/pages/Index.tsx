@@ -455,15 +455,16 @@ const Index = () => {
           {models.filter(m => m.buildStatus === 'toBuy').length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">Your Wishlist is empty.</div>
           ) : (
-            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+            <div className="columns-1 xs:columns-2 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 sm:gap-6 [column-fill:_balance]">
               {models.filter(m => m.buildStatus === 'toBuy').map(model => (
-                <GundamCard
-                  key={model.id}
-                  model={model}
-                  onEdit={(m) => { setShowToBuy(false); openEditForm(m); }}
-                  onDelete={setDeleteId}
-                  onOffers={setOffersModel}
-                />
+                <div key={model.id} className="mb-4 break-inside-avoid">
+                  <GundamCard
+                    model={model}
+                    onEdit={(m) => { setShowToBuy(false); openEditForm(m); }}
+                    onDelete={setDeleteId}
+                    onOffers={setOffersModel}
+                  />
+                </div>
               ))}
             </div>
           )}
