@@ -48,7 +48,8 @@ export function inferSeriesFromFilenamePrefix(filename: string): string | undefi
 /**
  * Search Gunpla image filenames by keywords and return full CDN URLs
  */
-export async function searchGunplaImagesByKeywords(keywords: string[], grade?: string, series?: string): Promise<string[]> {
+export type GunplaImageMeta = { url: string; name: string; grade?: string };
+export async function searchGunplaImagesByKeywords(keywords: string[], grade?: string, series?: string): Promise<GunplaImageMeta[]> {
   // Supabase-backed search. We search the gunpla_models table by name tokens and optional grade,
   // then return the corresponding CDN URLs from the url column.
   const lowerKeywords = keywords.map(k => k.toLowerCase()).filter(Boolean);
@@ -93,7 +94,7 @@ export async function searchGunplaImagesByKeywords(keywords: string[], grade?: s
       console.warn('[supabase] search error', error);
       return [];
     }
-    let rows = (data || []) as Array<{ url: string; name: string; grade: string }>;
+  let rows = (data || []) as Array<{ url: string; name: string; grade: string }>;
     console.info('[gunpladb][supabase] image search rows', rows.length);
     if (rows.length === 0 && gradeCode) {
       // retry without grade filter
@@ -115,7 +116,7 @@ export async function searchGunplaImagesByKeywords(keywords: string[], grade?: s
         return s.toLowerCase() === want;
       });
     }
-    return rows.map(r => toCdnUrl(r.url));
+  return rows.map(r => ({ url: toCdnUrl(r.url), name: r.name, grade: r.grade }));
   } catch (e) {
     if ((e as Error).message !== 'SUPABASE_DISABLED') {
       console.warn('searchGunplaImagesByKeywords fallback due to error:', e);
@@ -139,7 +140,7 @@ export async function fetchGundamImages(
   modelName: string,
   grade?: GundamGrade,
   series?: string
-): Promise<GunplaDBResponse & { imageOptions?: string[] }> {
+): Promise<GunplaDBResponse & { imageOptions?: GunplaImageMeta[] }> {
   try {
     // Clean and normalize the model name
     const cleanName = modelName
@@ -205,12 +206,13 @@ export async function fetchGundamImages(
             return s.toLowerCase() === want;
           });
         }
-        const urls = rows.map(r => toCdnUrl(r.url));
+        const metas: GunplaImageMeta[] = rows.map(r => ({ url: toCdnUrl(r.url), name: r.name, grade: r.grade }));
+        const urls = metas.map(m => m.url);
         if (urls.length > 0) {
           return {
             success: true,
             imageUrl: urls[0],
-            imageOptions: Array.from(new Set(urls)),
+            imageOptions: metas,
           };
         }
       }
@@ -221,7 +223,7 @@ export async function fetchGundamImages(
       }
     }
 
-    return { success: false, error: 'No images found for this model and grade combination' };
+  return { success: false, error: 'No images found for this model and grade combination' };
   } catch (error) {
     console.error('Error fetching Gundam image:', error);
     return { success: false, error: 'Failed to fetch image from GunplaDB' };
