@@ -20,6 +20,7 @@ const statusColors = {
   'Built': 'bg-success text-success-foreground',
   'Painted': 'bg-gundam-blue text-white',
   'Customized': 'bg-primary text-primary-foreground',
+  'toBuy': 'bg-amber-500 text-black',
 };
 
 export function GundamCard({ model, onEdit, onDelete, onOffers }: GundamCardProps) {
