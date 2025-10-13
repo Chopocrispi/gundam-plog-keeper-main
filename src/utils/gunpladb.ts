@@ -84,11 +84,11 @@ export async function searchGunplaImagesByKeywords(keywords: string[], grade?: s
     };
     const gradeCode = toCode(grade);
 
-    let q = supabase.from('gunpla_models').select('url,name,grade');
-    if (gradeCode) q = q.ilike('grade', gradeCode);
+  let q = supabase.from('gunpla_models').select('url,name,grade');
+  if (gradeCode) q = q.eq('grade', gradeCode);
     for (const t of lowerKeywords) q = q.ilike('name', `%${t}%`);
     console.info('[gunpladb][supabase] image search', { grade, gradeCode, tokens: lowerKeywords });
-    let { data, error } = await q;
+  let { data, error } = await q;
     if (error) {
       console.warn('[supabase] search error', error);
       return [];
@@ -102,6 +102,10 @@ export async function searchGunplaImagesByKeywords(keywords: string[], grade?: s
       for (const t of lowerKeywords) q2 = q2.ilike('name', `%${t}%`);
       const r2 = await q2;
       if (!r2.error) rows = (r2.data || []) as Array<{ url: string; name: string; grade: string }>;    
+    }
+    // Enforce strict grade match even after fallback
+    if (gradeCode) {
+      rows = rows.filter(r => (r.grade || '').toUpperCase() === gradeCode);
     }
     if (series) {
       const want = series.trim().toLowerCase();
@@ -174,8 +178,8 @@ export async function fetchGundamImages(
       };
       const gradeCode = toCode(grade);
 
-      let q = supabase.from('gunpla_models').select('url,name,grade');
-      if (gradeCode) q = q.ilike('grade', gradeCode);
+  let q = supabase.from('gunpla_models').select('url,name,grade');
+  if (gradeCode) q = q.eq('grade', gradeCode);
       for (const t of keywords) q = q.ilike('name', `%${t}%`);
       console.info('[gunpladb][supabase] fetch images', { modelName, grade, gradeCode, tokens: keywords });
       let { data, error } = await q;
@@ -188,6 +192,10 @@ export async function fetchGundamImages(
           for (const t of keywords) q2 = q2.ilike('name', `%${t}%`);
           const r2 = await q2;
           if (!r2.error) rows = (r2.data || []) as Array<{ url: string; name: string; grade: string }>;
+        }
+        // Enforce strict grade match even after fallback
+        if (gradeCode) {
+          rows = rows.filter(r => (r.grade || '').toUpperCase() === gradeCode);
         }
         if (series) {
           const want = series.trim().toLowerCase();
