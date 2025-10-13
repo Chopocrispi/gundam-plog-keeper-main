@@ -6,6 +6,7 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import { ShoppingCart, Plus } from 'lucide-react';
 import type { GundamModel, GundamGrade } from '@/types/gundam';
 import { supabaseAvailable, getSupabase } from '@/utils/supabase';
+import { inferSeriesFromFilename, inferSeriesFromFilenamePrefix } from '@/utils/gunpladb';
 
 type RecItem = {
   name: string;
@@ -17,6 +18,7 @@ type Props = {
   owned: GundamModel[];
   onWishlist: (item: { name: string; grade: GundamGrade; imageUrl?: string }) => void;
   onAdd: (item: { name: string; grade: GundamGrade; imageUrl?: string }) => void;
+  filterGrade?: string;
 };
 
 const CDN_BASE = 'https://cdn.gunpladb.net/';
@@ -46,7 +48,26 @@ function gradeLabelFromCode(code: string): GundamGrade {
   }
 }
 
-export function RecommendedCarousel({ owned, onWishlist, onAdd }: Props) {
+function gradeCodeFromLabel(label?: string): string | undefined {
+  if (!label) return undefined;
+  const u = label.toUpperCase();
+  if (u.includes('MGSD')) return 'MGSD';
+  if (u.includes('HIRM')) return 'HIRM';
+  if (u.includes('(PG)') || u.includes('PERFECT')) return 'PG';
+  if (u.includes('(MG)') || u.includes('MASTER')) return 'MG';
+  if (u.includes('(RG)') || u.includes('REAL')) return 'RG';
+  if (u.includes('(HG)') || u.includes('HIGH')) return 'HG';
+  if (u.includes('(FM)') || u.includes('FULL MECHANICS')) return 'FM';
+  if (u.includes('(MS)') || u.includes('MEGA SIZE')) return 'MS';
+  if (u.includes('(SD)') || u.includes('SUPER DEFORMED')) return 'SD';
+  if (u.includes('(EG)') || u.includes('ENTRY')) return 'EG';
+  if (u.includes('(FG)') || u.includes('FIRST')) return 'FG';
+  if (u.includes('(LM)')) return 'LM';
+  if (u.includes('(HY2M)')) return 'HY2M';
+  return undefined;
+}
+
+export function RecommendedCarousel({ owned, onWishlist, onAdd, filterGrade }: Props) {
   const [items, setItems] = React.useState<RecItem[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -72,17 +93,52 @@ export function RecommendedCarousel({ owned, onWishlist, onAdd }: Props) {
           return;
         }
         const ownedKey = new Set(owned.map(m => `${(m.name || '').toLowerCase()}|${(m.grade || '').toLowerCase()}`));
+        const ownedNames = new Set(owned.map(m => (m.name || '').toLowerCase()));
+
+        // Build preference weights
+        const gradeCounts: Record<string, number> = {};
+        for (const m of owned) {
+          const code = gradeCodeFromLabel(m.grade as string);
+          if (!code) continue;
+          gradeCounts[code] = (gradeCounts[code] || 0) + 1;
+        }
+        const totalGrades = Object.values(gradeCounts).reduce((a, b) => a + b, 0) || 1;
+        const gradeWeight: Record<string, number> = {};
+        for (const [k, v] of Object.entries(gradeCounts)) gradeWeight[k] = v / totalGrades;
+
+        const seriesCounts: Record<string, number> = {};
+        for (const m of owned) {
+          const s = (m.series || '').trim().toLowerCase();
+          if (!s) continue;
+          seriesCounts[s] = (seriesCounts[s] || 0) + 1;
+        }
+        const totalSeries = Object.values(seriesCounts).reduce((a, b) => a + b, 0) || 1;
+        const seriesWeight: Record<string, number> = {};
+        for (const [k, v] of Object.entries(seriesCounts)) seriesWeight[k] = v / totalSeries;
+
+        const filterGradeCode = gradeCodeFromLabel(filterGrade);
+
         const candidates = (data || []).filter(r => {
           const label = gradeLabelFromCode(r.grade);
           const key = `${(r.name || '').toLowerCase()}|${label.toLowerCase()}`;
-          return !ownedKey.has(key);
+          if (ownedKey.has(key)) return false;
+          if (ownedNames.has((r.name || '').toLowerCase())) return false;
+          return true;
         }) as Array<{ name: string; grade: string; url: string }>;
-        // Shuffle and take first 16
-        for (let i = candidates.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
-        }
-        const picked = candidates.slice(0, 16).map(r => ({ name: r.name, grade: r.grade, url: ensureCdn(r.url) }));
+
+        const scored = candidates.map(r => {
+          const code = (r.grade || '').toUpperCase();
+          const base = 1;
+          const gw = gradeWeight[code] || 0;
+          const file = (r.url || '').split('/').pop() || r.url;
+          const inferredSeries = (inferSeriesFromFilenamePrefix(file) || inferSeriesFromFilename(file) || '').toLowerCase();
+          const sw = seriesWeight[inferredSeries] || 0;
+          const filterBoost = filterGradeCode && code === filterGradeCode ? 2 : 0;
+          const jitter = Math.random() * 0.2;
+          return { r, score: base + gw * 2 + sw * 1 + filterBoost + jitter };
+        });
+        scored.sort((a, b) => b.score - a.score);
+        const picked = scored.slice(0, 16).map(({ r }) => ({ name: r.name, grade: r.grade, url: ensureCdn(r.url) }));
         if (!cancelled) setItems(picked);
       } catch (e) {
         if (!cancelled) setItems([]);
@@ -91,7 +147,7 @@ export function RecommendedCarousel({ owned, onWishlist, onAdd }: Props) {
       }
     })();
     return () => { cancelled = true; };
-  }, [owned]);
+  }, [owned, filterGrade]);
 
   if (loading || items.length === 0) return null;
 

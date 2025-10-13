@@ -302,6 +302,7 @@ const Index = () => {
         {/* Recommended carousel above the main list */}
         <RecommendedCarousel
           owned={models}
+          filterGrade={filterGrade === 'all' ? undefined : filterGrade}
           onWishlist={({ name, grade, imageUrl }) => {
             const id = Date.now().toString();
             const now = new Date().toISOString();
