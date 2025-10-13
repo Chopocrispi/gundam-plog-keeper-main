@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
-import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { ShoppingCart, Plus } from 'lucide-react';
 import type { GundamModel, GundamGrade } from '@/types/gundam';
 import { supabaseAvailable, getSupabase } from '@/utils/supabase';
@@ -108,23 +107,21 @@ export function RecommendedCarousel({ owned, onWishlist, onAdd }: Props) {
               <Card className="group overflow-hidden bg-gradient-to-br from-card to-card/80 flex flex-col h-full">
                 <CardHeader className="p-0">
                   <div className="relative overflow-hidden rounded-t-xl bg-card">
-                    <AspectRatio ratio={1}>
-                      {it.url ? (
-                        <img
-                          src={it.url}
-                          alt={it.name}
-                          className="object-cover w-full h-full align-middle"
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-muted-foreground bg-gradient-to-br from-muted/20 to-muted/40">
-                          <div className="text-center">
-                            <div className="text-4xl mb-2">🤖</div>
-                            <div className="text-sm">No Image</div>
-                          </div>
+                    {it.url ? (
+                      <img
+                        src={it.url}
+                        alt={it.name}
+                        className="block w-full h-auto align-middle"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
+                      />
+                    ) : (
+                      <div className="w-full py-8 flex items-center justify-center text-muted-foreground bg-gradient-to-br from-muted/20 to-muted/40">
+                        <div className="text-center">
+                          <div className="text-4xl mb-2">🤖</div>
+                          <div className="text-sm">No Image</div>
                         </div>
-                      )}
-                    </AspectRatio>
+                      </div>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="p-4 space-y-3 flex-1">
