@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
-import { ShoppingCart, Plus } from 'lucide-react';
+import { ShoppingCart, Plus, RefreshCw } from 'lucide-react';
 import type { GundamModel, GundamGrade } from '@/types/gundam';
 import { supabaseAvailable, getSupabase } from '@/utils/supabase';
 import { inferSeriesFromFilename, inferSeriesFromFilenamePrefix } from '@/utils/gunpladb';
@@ -70,11 +70,13 @@ function gradeCodeFromLabel(label?: string): string | undefined {
 export function RecommendedCarousel({ owned, onWishlist, onAdd, filterGrade }: Props) {
   const [items, setItems] = React.useState<RecItem[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [refreshNonce, setRefreshNonce] = React.useState(0);
 
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
+        setLoading(true);
         if (!supabaseAvailable()) {
           setItems([]);
           setLoading(false);
@@ -147,14 +149,26 @@ export function RecommendedCarousel({ owned, onWishlist, onAdd, filterGrade }: P
       }
     })();
     return () => { cancelled = true; };
-  }, [owned, filterGrade]);
-
-  if (loading || items.length === 0) return null;
+  }, [owned, filterGrade, refreshNonce]);
+  // Keep showing the last recommendations while a manual refresh is in progress
+  if (items.length === 0) return null;
 
   return (
     <div className="mt-6">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-lg font-semibold">Recommended for you</h3>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            title="Refresh recommendations"
+            aria-label="Refresh recommendations"
+            onClick={() => setRefreshNonce(n => n + 1)}
+            disabled={loading}
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
       </div>
       <Carousel className="w-full">
         <CarouselContent>
