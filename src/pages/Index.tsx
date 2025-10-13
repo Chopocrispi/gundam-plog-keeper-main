@@ -299,7 +299,47 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Recommended carousel above the main list */}
+        
+
+        {/* Models Grid/List */}
+        {filteredModels.length === 0 ? (
+          <div className="text-center py-10 sm:py-12">
+            <div className="text-5xl sm:text-6xl mb-3 sm:mb-4">🤖</div>
+            <h3 className="text-lg sm:text-xl font-semibold mb-2">No Models Found</h3>
+            <p className="text-muted-foreground mb-4">
+              {models.length === 0 
+                ? "Start building your collection by adding your first Gundam model!"
+                : "Try adjusting your search or filters to find what you're looking for."
+              }
+            </p>
+            {models.length === 0 && (
+              <Button onClick={() => (signedIn ? setShowForm(true) : setShowAuth(true))}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Your First Model
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className={
+            viewMode === 'grid'
+              ? "columns-1 xs:columns-2 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 sm:gap-6 [column-fill:_balance]"
+              : "space-y-4"
+          }>
+            {filteredModels.map((model) => (
+              <div key={model.id} className="mb-4 break-inside-avoid">
+                <GundamCard
+                  model={model}
+                  onEdit={openEditForm}
+                  onDelete={setDeleteId}
+                  onOffers={setOffersModel}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Divider and Recommended carousel below the main list */}
+        <Separator className="my-6" />
         <RecommendedCarousel
           owned={models}
           filterGrade={filterGrade === 'all' ? undefined : filterGrade}
@@ -346,45 +386,6 @@ const Index = () => {
             }
           }}
         />
-
-        <Separator className="my-6" />
-
-        {/* Models Grid/List */}
-        {filteredModels.length === 0 ? (
-          <div className="text-center py-10 sm:py-12">
-            <div className="text-5xl sm:text-6xl mb-3 sm:mb-4">🤖</div>
-            <h3 className="text-lg sm:text-xl font-semibold mb-2">No Models Found</h3>
-            <p className="text-muted-foreground mb-4">
-              {models.length === 0 
-                ? "Start building your collection by adding your first Gundam model!"
-                : "Try adjusting your search or filters to find what you're looking for."
-              }
-            </p>
-            {models.length === 0 && (
-              <Button onClick={() => (signedIn ? setShowForm(true) : setShowAuth(true))}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Your First Model
-              </Button>
-            )}
-          </div>
-        ) : (
-          <div className={
-            viewMode === 'grid'
-              ? "columns-1 xs:columns-2 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 sm:gap-6 [column-fill:_balance]"
-              : "space-y-4"
-          }>
-            {filteredModels.map((model) => (
-              <div key={model.id} className="mb-4 break-inside-avoid">
-                <GundamCard
-                  model={model}
-                  onEdit={openEditForm}
-                  onDelete={setDeleteId}
-                  onOffers={setOffersModel}
-                />
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Floating Speed Dial (Add / Buy) */}
