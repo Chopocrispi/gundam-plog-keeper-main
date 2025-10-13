@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import OffersPanel from '@/components/OffersPanel';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Search, Grid, List, Filter } from 'lucide-react';
+import { Plus, X, Search, Grid, List, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/theme-toggle';
 import GoogleLoginButton from '@/components/GoogleLoginButton';
@@ -36,6 +36,7 @@ const Index = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showForm, setShowForm] = useState(false);
   const [showBuy, setShowBuy] = useState(false);
+  const [showActions, setShowActions] = useState(false);
   const [editingModel, setEditingModel] = useState<GundamModel | undefined>();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [offersModel, setOffersModel] = useState<GundamModel | null>(null);
@@ -262,7 +263,6 @@ const Index = () => {
               <SelectItem value="Built">Built</SelectItem>
               <SelectItem value="Painted">Painted</SelectItem>
               <SelectItem value="Customized">Customized</SelectItem>
-              <SelectItem value="toBuy">To Buy</SelectItem>
             </SelectContent>
           </Select>
 
@@ -325,34 +325,37 @@ const Index = () => {
       <div className="fixed right-4 bottom-4 z-50">
         <div className="relative h-14 w-14">
           <div className="floating-add-pulse" />
-          {/* Actions revealed above main button */}
-          <div className="absolute -top-36 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none select-none">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setShowBuy(true)}
-              className="pointer-events-auto shadow-md"
-              title="Buy a kit"
-            >
-              Buy
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setShowForm(true)}
-              className="pointer-events-auto shadow-md"
-              title="Add to log"
-            >
-              Add
-            </Button>
-          </div>
-          {/* Main trigger is always visible */}
+          {/* Actions revealed above main button (only when open) */}
+          {showActions && (
+            <div className="absolute -top-36 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 select-none">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => { setShowActions(false); setShowBuy(true); }}
+                className="shadow-md"
+                title="Add to wishlist"
+              >
+                Add to wishlist
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => { setShowActions(false); setShowForm(true); }}
+                className="shadow-md"
+                title="Add to log"
+              >
+                Add
+              </Button>
+            </div>
+          )}
+          {/* Main trigger */}
           <Button
-            aria-label="Open actions"
-            title="Open actions"
+            aria-label={showActions ? 'Close actions' : 'Open actions'}
+            title={showActions ? 'Close actions' : 'Open actions'}
+            onClick={() => setShowActions(s => !s)}
             className="floating-add-btn absolute inset-0 h-14 w-14 rounded-full p-0 bg-gradient-to-r from-primary to-gundam-red hover:from-primary/90 hover:to-gundam-red/90 shadow-lg flex items-center justify-center"
           >
-            <Plus className="h-5 w-5" />
+            {showActions ? <X className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
           </Button>
         </div>
       </div>
