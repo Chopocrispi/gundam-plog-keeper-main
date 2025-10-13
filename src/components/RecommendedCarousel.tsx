@@ -6,7 +6,6 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import { ShoppingCart, Plus, RefreshCw } from 'lucide-react';
 import type { GundamModel, GundamGrade } from '@/types/gundam';
 import { supabaseAvailable, getSupabase } from '@/utils/supabase';
-import { findStaticOffersForModel, offersCacheKey } from '@/utils/offers';
 
 type RecItem = {
   name: string;
@@ -71,7 +70,6 @@ export function RecommendedCarousel({ owned, onWishlist, onAdd }: Props) {
   const [items, setItems] = React.useState<RecItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [refreshNonce, setRefreshNonce] = React.useState(0);
-  const [avgPriceByKey, setAvgPriceByKey] = React.useState<Record<string, number | undefined>>({});
 
   React.useEffect(() => {
     let cancelled = false;
@@ -162,31 +160,6 @@ export function RecommendedCarousel({ owned, onWishlist, onAdd }: Props) {
     return () => { cancelled = true; };
   }, [owned, refreshNonce]);
 
-  // Compute average prices for current items using static offers index (fast, no live API)
-  React.useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const entries = await Promise.all(items.map(async (it) => {
-        const grade = gradeLabelFromCode(it.grade);
-        const key = offersCacheKey(it.name, grade as GundamGrade, it.url);
-        try {
-          const offers = await findStaticOffersForModel(it.name, grade as GundamGrade, { imageUrl: it.url });
-          const avg = offers && offers.length > 0
-            ? Math.round((offers.reduce((a, o) => a + (o.price || 0), 0) / offers.length) * 100) / 100
-            : undefined;
-          return [key, avg] as const;
-        } catch {
-          return [key, undefined] as const;
-        }
-      }));
-      if (!cancelled) {
-        const next: Record<string, number | undefined> = {};
-        for (const [k, v] of entries) next[k] = v;
-        setAvgPriceByKey(next);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [items]);
   // Keep showing the last recommendations while a manual refresh is in progress
   if (items.length === 0) return null;
 
@@ -240,13 +213,6 @@ export function RecommendedCarousel({ owned, onWishlist, onAdd }: Props) {
                       <Badge variant="outline" className="text-xs">
                         {gradeLabelFromCode(it.grade)}
                       </Badge>
-                      {(() => {
-                        const key = offersCacheKey(it.name, gradeLabelFromCode(it.grade) as GundamGrade, it.url);
-                        const avg = avgPriceByKey[key];
-                        return (
-                          <span className="text-xs text-muted-foreground tabular-nums">{avg != null ? `$${avg.toFixed(2)}` : 'Avg —'}</span>
-                        );
-                      })()}
                     </div>
                   </div>
                   <div className="flex gap-2 mt-auto pt-2 border-t" style={{ borderColor: 'hsl(var(--border))' }}>
