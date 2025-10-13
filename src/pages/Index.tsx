@@ -13,6 +13,7 @@ import OffersPanel from '@/components/OffersPanel';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Plus, Search, Grid, List, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useTheme } from '@/hooks/use-theme';
 import { ThemeToggle } from '@/components/theme-toggle';
 import GoogleLoginButton from '@/components/GoogleLoginButton';
 import DiscordLoginButton from '@/components/DiscordLoginButton';
@@ -26,6 +27,15 @@ const Index = () => {
   const { toast } = useToast();
   const { t } = useTranslation();
   const { user, signedIn } = useAuth();
+  // Theme debug helper
+  function ThemeDebug() {
+    const { theme } = useTheme();
+    return (
+      <div className="text-sm text-muted-foreground px-2 py-0.5 rounded-md border" style={{ borderColor: 'hsl(var(--border))' }}>
+        theme: {theme}
+      </div>
+    )
+  }
   const navigate = useNavigate();
   const [models, setModels] = useState<GundamModel[]>([]);
   const [filteredModels, setFilteredModels] = useState<GundamModel[]>([]);
@@ -204,9 +214,13 @@ const Index = () => {
         <div className="container mx-auto px-4 py-4 sm:py-6">
           <div className="flex items-center justify-between gap-2 flex-nowrap">
             <div className="min-w-0 flex-1">
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-wide" style={{ color: 'hsl(var(--gundam-red))' }}>
-                Gundapp
-              </h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-wide" style={{ color: 'hsl(var(--gundam-red))' }}>
+                  Gundapp
+                </h1>
+                {/* Debug: show current theme value */}
+                <ThemeDebug />
+              </div>
             </div>
             {/* header actions (sign in, etc.) — floating Add Model button moved to bottom-left */}
             <div className="ml-4 flex items-center gap-2 min-w-0 flex-none max-w-[60vw] overflow-hidden">
