@@ -1,0 +1,520 @@
+[
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/?s=MG%20RX-78-2%20Gundam%20Ver.%203.0&post_type=product",
+    "method": "GET"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/advanced-product-labels-for-woocommerce/berocket/assets/css/font-awesome.min.css?ver=6.2.8",
+    "method": "GET"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/advanced-product-labels-for-woocommerce/css/frontend.css?ver=1.2.9",
+    "method": "GET"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/th-advance-product-search/build/style-th-advance-product-search.css?ver=1737463573",
+    "method": "GET"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/th-advance-product-search/th-icon/style.css?ver=6.2.8",
+    "method": "GET"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/th-advance-product-search/assets/css/thaps-front-style.css?ver=6.2.8",
+    "method": "GET"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/yith-woocommerce-ajax-product-filter-premium/assets/css/frontend.css?ver=3.11.2",
+    "method": "GET"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/th-advance-product-search/assets/css/thaps-front-style.css?ver=1.2.8",
+    "method": "GET"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/th-advance-product-search/assets/js/thaps-search.js?ver=1",
+    "method": "GET"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/advanced-product-labels-for-woocommerce/berocket/assets/css/font-awesome.min.css?ver=6.2.8",
+    "status": 200,
+    "ct": "text/css"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/advanced-product-labels-for-woocommerce/css/frontend.css?ver=1.2.9",
+    "status": 200,
+    "ct": "text/css"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/th-advance-product-search/th-icon/style.css?ver=6.2.8",
+    "status": 200,
+    "ct": "text/css"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/th-advance-product-search/assets/css/thaps-front-style.css?ver=6.2.8",
+    "status": 200,
+    "ct": "text/css"
+  },
+  {
+    "type": "req",
+    "url": "https://fonts.googleapis.com/css?family=Armata&ver=6.2.8",
+    "method": "GET"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/th-advance-product-search/build/style-th-advance-product-search.css?ver=1737463573",
+    "status": 200,
+    "ct": "text/css"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/yith-woocommerce-ajax-product-filter-premium/assets/css/frontend.css?ver=3.11.2",
+    "status": 200,
+    "ct": "text/css"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/th-advance-product-search/assets/css/thaps-front-style.css?ver=1.2.8",
+    "status": 200,
+    "ct": "text/css"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/th-advance-product-search/assets/js/thaps-search.js?ver=1",
+    "status": 200,
+    "ct": "application/javascript"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/?wc-ajax=get_refreshed_fragments",
+    "method": "POST"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/advanced-product-labels-for-woocommerce/berocket/assets/fonts/fontawesome-webfont.woff2?v=4.7.0",
+    "method": "GET"
+  },
+  {
+    "type": "resp",
+    "url": "https://fonts.googleapis.com/css?family=Armata&ver=6.2.8",
+    "status": 200,
+    "ct": "text/css; charset=utf-8"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-includes/js/api-request.min.js?ver=6.2.8",
+    "method": "GET"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/yith-woocommerce-ajax-product-filter-premium/assets/js/yith-wcan-frontend.min.js?ver=3.11.2",
+    "method": "GET"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/yith-woocommerce-ajax-product-filter-premium/assets/js/yith-wcan-frontend-premium.min.js?ver=3.11.2",
+    "method": "GET"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/correosoficial/ecommerce_common_lib/views/js/ajax.js?ver=1.3.4.0",
+    "method": "GET"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/correosoficial/js/ajax_wc_checkout.js?ver=1.3.4.0",
+    "method": "GET"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/?s=MG%20RX-78-2%20Gundam%20Ver.%203.0&post_type=product",
+    "status": 200,
+    "ct": "text/html; charset=UTF-8",
+    "found": false,
+    "snippet": ""
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/advanced-product-labels-for-woocommerce/berocket/assets/fonts/fontawesome-webfont.woff2?v=4.7.0",
+    "status": 200,
+    "ct": "font/woff2"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-includes/js/api-request.min.js?ver=6.2.8",
+    "status": 200,
+    "ct": "application/javascript"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/yith-woocommerce-ajax-product-filter-premium/assets/js/yith-wcan-frontend.min.js?ver=3.11.2",
+    "status": 200,
+    "ct": "application/javascript"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/yith-woocommerce-ajax-product-filter-premium/assets/js/yith-wcan-frontend-premium.min.js?ver=3.11.2",
+    "status": 200,
+    "ct": "application/javascript"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/correosoficial/ecommerce_common_lib/views/js/ajax.js?ver=1.3.4.0",
+    "status": 200,
+    "ct": "application/javascript"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/correosoficial/js/ajax_wc_checkout.js?ver=1.3.4.0",
+    "status": 200,
+    "ct": "application/javascript"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/?wc-ajax=get_refreshed_fragments",
+    "method": "POST"
+  },
+  {
+    "type": "req",
+    "url": "https://www.facebook.com/tr/?id=208362750226082&ev=PageView&dl=https%3A%2F%2Fgeosanbattle.com%2F%3Fs%3DMG%2520RX-78-2%2520Gundam%2520Ver.%25203.0%26post_type%3Dproduct&rl=&if=false&ts=1760442793641&cd[source]=woocommerce_0&cd[version]=7.5.1&cd[pluginVersion]=3.5.9&cd[user_data]=%7B%7D&sw=1280&sh=720&v=2.9.235&r=stable&a=woocommerce_0-7.5.1-3.5.9&ec=0&o=4126&fbp=fb.1.1760442793639.47967275770981579&ler=empty&cdl=API_unavailable&pmd[title]=Resultados%20de%20la%20b%C3%BAsqueda%20de%20%C2%ABMG%20RX-78-2%20Gundam%20Ver.%203.0%C2%BB&pmd[contents]=%5B%5D&plt=6407.0999999940395&it=1760442793263&coo=false&eid=e1dd015a-0f91-4c24-b098-629ca7d42077&expv2[0]=pl0&expv2[1]=el2&expv2[2]=bc1&rqm=GET",
+    "method": "GET"
+  },
+  {
+    "type": "req",
+    "url": "https://www.facebook.com/privacy_sandbox/pixel/register/trigger/?id=208362750226082&ev=PageView&dl=https%3A%2F%2Fgeosanbattle.com%2F%3Fs%3DMG%2520RX-78-2%2520Gundam%2520Ver.%25203.0%26post_type%3Dproduct&rl=&if=false&ts=1760442793641&cd[source]=woocommerce_0&cd[version]=7.5.1&cd[pluginVersion]=3.5.9&cd[user_data]=%7B%7D&sw=1280&sh=720&v=2.9.235&r=stable&a=woocommerce_0-7.5.1-3.5.9&ec=0&o=4126&fbp=fb.1.1760442793639.47967275770981579&ler=empty&cdl=API_unavailable&pmd[title]=Resultados%20de%20la%20b%C3%BAsqueda%20de%20%C2%ABMG%20RX-78-2%20Gundam%20Ver.%203.0%C2%BB&pmd[contents]=%5B%5D&plt=6407.0999999940395&it=1760442793263&coo=false&eid=e1dd015a-0f91-4c24-b098-629ca7d42077&expv2[0]=pl0&expv2[1]=el2&expv2[2]=bc1&rqm=FGET",
+    "method": "GET"
+  },
+  {
+    "type": "resp",
+    "url": "https://www.facebook.com/tr/?id=208362750226082&ev=PageView&dl=https%3A%2F%2Fgeosanbattle.com%2F%3Fs%3DMG%2520RX-78-2%2520Gundam%2520Ver.%25203.0%26post_type%3Dproduct&rl=&if=false&ts=1760442793641&cd[source]=woocommerce_0&cd[version]=7.5.1&cd[pluginVersion]=3.5.9&cd[user_data]=%7B%7D&sw=1280&sh=720&v=2.9.235&r=stable&a=woocommerce_0-7.5.1-3.5.9&ec=0&o=4126&fbp=fb.1.1760442793639.47967275770981579&ler=empty&cdl=API_unavailable&pmd[title]=Resultados%20de%20la%20b%C3%BAsqueda%20de%20%C2%ABMG%20RX-78-2%20Gundam%20Ver.%203.0%C2%BB&pmd[contents]=%5B%5D&plt=6407.0999999940395&it=1760442793263&coo=false&eid=e1dd015a-0f91-4c24-b098-629ca7d42077&expv2[0]=pl0&expv2[1]=el2&expv2[2]=bc1&rqm=GET",
+    "status": 200,
+    "ct": "text/plain",
+    "found": false,
+    "snippet": ""
+  },
+  {
+    "type": "req",
+    "url": "https://region1.google-analytics.com/g/collect?v=2&tid=G-Y3CC9T7RH7&gtm=45je5a90h2v873902976za200&_p=1760442793171&gcd=13l3l3l2l1l1&npa=1&dma_cps=syphamo&dma=1&cid=831946708.1760442794&ul=en-150&sr=1280x720&uaa=x86&uab=64&uafvl=HeadlessChrome%3B141.0.7390.37%7CNot%253FA_Brand%3B8.0.0.0%7CChromium%3B141.0.7390.37&uamb=0&uam=&uap=Windows&uapv=10.0&uaw=0&are=1&frm=0&pscdl=noapi&_s=1&tag_exp=101509157~103116026~103200004~103233427~104527906~104528501~104684208~104684211~104948813~105322303~115480709~115752874~115834636~115834638~115868795~115868797&sid=1760442793&sct=1&seg=0&dl=https%3A%2F%2Fgeosanbattle.com%2F%3Fs%3DMG%2520RX-78-2%2520Gundam%2520Ver.%25203.0%26post_type%3Dproduct&dt=Resultados%20de%20la%20b%C3%BAsqueda%20de%20%C2%ABMG%20RX-78-2%20Gundam%20Ver.%203.0%C2%BB&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&tfd=6607",
+    "method": "POST"
+  },
+  {
+    "type": "resp",
+    "url": "https://region1.google-analytics.com/g/collect?v=2&tid=G-Y3CC9T7RH7&gtm=45je5a90h2v873902976za200&_p=1760442793171&gcd=13l3l3l2l1l1&npa=1&dma_cps=syphamo&dma=1&cid=831946708.1760442794&ul=en-150&sr=1280x720&uaa=x86&uab=64&uafvl=HeadlessChrome%3B141.0.7390.37%7CNot%253FA_Brand%3B8.0.0.0%7CChromium%3B141.0.7390.37&uamb=0&uam=&uap=Windows&uapv=10.0&uaw=0&are=1&frm=0&pscdl=noapi&_s=1&tag_exp=101509157~103116026~103200004~103233427~104527906~104528501~104684208~104684211~104948813~105322303~115480709~115752874~115834636~115834638~115868795~115868797&sid=1760442793&sct=1&seg=0&dl=https%3A%2F%2Fgeosanbattle.com%2F%3Fs%3DMG%2520RX-78-2%2520Gundam%2520Ver.%25203.0%26post_type%3Dproduct&dt=Resultados%20de%20la%20b%C3%BAsqueda%20de%20%C2%ABMG%20RX-78-2%20Gundam%20Ver.%203.0%C2%BB&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&tfd=6607",
+    "status": 204,
+    "ct": "text/plain",
+    "found": false,
+    "snippet": ""
+  },
+  {
+    "type": "resp",
+    "url": "https://www.facebook.com/privacy_sandbox/pixel/register/trigger/?id=208362750226082&ev=PageView&dl=https%3A%2F%2Fgeosanbattle.com%2F%3Fs%3DMG%2520RX-78-2%2520Gundam%2520Ver.%25203.0%26post_type%3Dproduct&rl=&if=false&ts=1760442793641&cd[source]=woocommerce_0&cd[version]=7.5.1&cd[pluginVersion]=3.5.9&cd[user_data]=%7B%7D&sw=1280&sh=720&v=2.9.235&r=stable&a=woocommerce_0-7.5.1-3.5.9&ec=0&o=4126&fbp=fb.1.1760442793639.47967275770981579&ler=empty&cdl=API_unavailable&pmd[title]=Resultados%20de%20la%20b%C3%BAsqueda%20de%20%C2%ABMG%20RX-78-2%20Gundam%20Ver.%203.0%C2%BB&pmd[contents]=%5B%5D&plt=6407.0999999940395&it=1760442793263&coo=false&eid=e1dd015a-0f91-4c24-b098-629ca7d42077&expv2[0]=pl0&expv2[1]=el2&expv2[2]=bc1&rqm=FGET",
+    "status": 200,
+    "ct": "image/png"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/?wc-ajax=get_refreshed_fragments",
+    "status": 200,
+    "ct": "application/json; charset=UTF-8",
+    "found": false,
+    "snippet": ""
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/?wc-ajax=get_refreshed_fragments",
+    "status": 200,
+    "ct": "application/json; charset=UTF-8",
+    "found": false,
+    "snippet": ""
+  },
+  {
+    "type": "req",
+    "url": "https://region1.google-analytics.com/g/collect?v=2&tid=G-Y3CC9T7RH7&gtm=45je5a90h2v873902976za200&_p=1760442793171&gcd=13l3l3l2l1l1&npa=1&dma_cps=syphamo&dma=1&cid=831946708.1760442794&ul=en-150&sr=1280x720&uaa=x86&uab=64&uafvl=HeadlessChrome%3B141.0.7390.37%7CNot%253FA_Brand%3B8.0.0.0%7CChromium%3B141.0.7390.37&uamb=0&uam=&uap=Windows&uapv=10.0&uaw=0&are=1&frm=0&pscdl=noapi&_eu=AEAAAAQ&_s=2&tag_exp=101509157~103116026~103200004~103233427~104527906~104528501~104684208~104684211~104948813~105322303~115480709~115752874~115834636~115834638~115868795~115868797&sid=1760442793&sct=1&seg=0&dl=https%3A%2F%2Fgeosanbattle.com%2F%3Fs%3DMG%2520RX-78-2%2520Gundam%2520Ver.%25203.0%26post_type%3Dproduct&dt=Resultados%20de%20la%20b%C3%BAsqueda%20de%20%C2%ABMG%20RX-78-2%20Gundam%20Ver.%203.0%C2%BB&en=view_search_results&ep.search_term=MG%20RX-78-2%20Gundam%20Ver.%203.0&_et=2&tfd=11611",
+    "method": "POST"
+  },
+  {
+    "type": "resp",
+    "url": "https://region1.google-analytics.com/g/collect?v=2&tid=G-Y3CC9T7RH7&gtm=45je5a90h2v873902976za200&_p=1760442793171&gcd=13l3l3l2l1l1&npa=1&dma_cps=syphamo&dma=1&cid=831946708.1760442794&ul=en-150&sr=1280x720&uaa=x86&uab=64&uafvl=HeadlessChrome%3B141.0.7390.37%7CNot%253FA_Brand%3B8.0.0.0%7CChromium%3B141.0.7390.37&uamb=0&uam=&uap=Windows&uapv=10.0&uaw=0&are=1&frm=0&pscdl=noapi&_eu=AEAAAAQ&_s=2&tag_exp=101509157~103116026~103200004~103233427~104527906~104528501~104684208~104684211~104948813~105322303~115480709~115752874~115834636~115834638~115868795~115868797&sid=1760442793&sct=1&seg=0&dl=https%3A%2F%2Fgeosanbattle.com%2F%3Fs%3DMG%2520RX-78-2%2520Gundam%2520Ver.%25203.0%26post_type%3Dproduct&dt=Resultados%20de%20la%20b%C3%BAsqueda%20de%20%C2%ABMG%20RX-78-2%20Gundam%20Ver.%203.0%C2%BB&en=view_search_results&ep.search_term=MG%20RX-78-2%20Gundam%20Ver.%203.0&_et=2&tfd=11611",
+    "status": 204,
+    "ct": "text/plain",
+    "found": false,
+    "snippet": ""
+  },
+  {
+    "type": "req",
+    "url": "https://api.ipify.org/?format=json",
+    "method": "GET"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-admin/admin-ajax.php?action=wp_dark_mode_update_visitor&_wpnonce=68169dc92a",
+    "method": "POST"
+  },
+  {
+    "type": "resp",
+    "url": "https://api.ipify.org/?format=json",
+    "status": 200,
+    "ct": "application/json",
+    "found": false,
+    "snippet": ""
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-admin/admin-ajax.php?action=wp_dark_mode_update_visitor&_wpnonce=68169dc92a",
+    "status": 200,
+    "ct": "application/json; charset=UTF-8",
+    "found": false,
+    "snippet": ""
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/?s=MG%20RX-78-2%20Gundam%20Ver.%203.0&post_type=product",
+    "method": "GET"
+  },
+  {
+    "type": "req",
+    "url": "https://region1.google-analytics.com/g/collect?v=2&tid=G-Y3CC9T7RH7&gtm=45je5a90h2v873902976za200&_p=1760442793171&gcd=13l3l3l2l1l1&npa=1&dma_cps=syphamo&dma=1&cid=831946708.1760442794&ul=en-150&sr=1280x720&uaa=x86&uab=64&uafvl=HeadlessChrome%3B141.0.7390.37%7CNot%253FA_Brand%3B8.0.0.0%7CChromium%3B141.0.7390.37&uamb=0&uam=&uap=Windows&uapv=10.0&uaw=0&are=1&frm=0&pscdl=noapi&_eu=AAAAAAQ&_s=3&tag_exp=101509157~103116026~103200004~103233427~104527906~104528501~104684208~104684211~104948813~105322303~115480709~115752874~115834636~115834638~115868795~115868797&sid=1760442793&sct=1&seg=1&dl=https%3A%2F%2Fgeosanbattle.com%2F%3Fs%3DMG%2520RX-78-2%2520Gundam%2520Ver.%25203.0%26post_type%3Dproduct&dt=Resultados%20de%20la%20b%C3%BAsqueda%20de%20%C2%ABMG%20RX-78-2%20Gundam%20Ver.%203.0%C2%BB&en=user_engagement&_et=59905&tfd=66517",
+    "method": "POST"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/advanced-product-labels-for-woocommerce/berocket/assets/css/font-awesome.min.css?ver=6.2.8",
+    "method": "GET"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/advanced-product-labels-for-woocommerce/berocket/assets/css/font-awesome.min.css?ver=6.2.8",
+    "status": 200,
+    "ct": "text/css"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/advanced-product-labels-for-woocommerce/css/frontend.css?ver=1.2.9",
+    "method": "GET"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/advanced-product-labels-for-woocommerce/css/frontend.css?ver=1.2.9",
+    "status": 200,
+    "ct": "text/css"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/th-advance-product-search/build/style-th-advance-product-search.css?ver=1737463573",
+    "method": "GET"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/th-advance-product-search/build/style-th-advance-product-search.css?ver=1737463573",
+    "status": 200,
+    "ct": "text/css"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/th-advance-product-search/th-icon/style.css?ver=6.2.8",
+    "method": "GET"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/th-advance-product-search/th-icon/style.css?ver=6.2.8",
+    "status": 200,
+    "ct": "text/css"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/th-advance-product-search/assets/css/thaps-front-style.css?ver=6.2.8",
+    "method": "GET"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/th-advance-product-search/assets/css/thaps-front-style.css?ver=6.2.8",
+    "status": 200,
+    "ct": "text/css"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/yith-woocommerce-ajax-product-filter-premium/assets/css/frontend.css?ver=3.11.2",
+    "method": "GET"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/yith-woocommerce-ajax-product-filter-premium/assets/css/frontend.css?ver=3.11.2",
+    "status": 200,
+    "ct": "text/css"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/th-advance-product-search/assets/css/thaps-front-style.css?ver=1.2.8",
+    "method": "GET"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/th-advance-product-search/assets/css/thaps-front-style.css?ver=1.2.8",
+    "status": 200,
+    "ct": "text/css"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/?wc-ajax=get_refreshed_fragments",
+    "method": "POST"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/th-advance-product-search/assets/js/thaps-search.js?ver=1",
+    "method": "GET"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/th-advance-product-search/assets/js/thaps-search.js?ver=1",
+    "status": 200,
+    "ct": "application/javascript"
+  },
+  {
+    "type": "req",
+    "url": "https://region1.google-analytics.com/g/collect?v=2&tid=G-Y3CC9T7RH7&gtm=45je5a90h2v873902976za200&_p=1760442853784&gcd=13l3l3l2l1l1&npa=1&dma_cps=syphamo&dma=1&cid=831946708.1760442794&ul=en-150&sr=1280x720&uaa=x86&uab=64&uafvl=HeadlessChrome%3B141.0.7390.37%7CNot%253FA_Brand%3B8.0.0.0%7CChromium%3B141.0.7390.37&uamb=0&uam=&uap=Windows&uapv=10.0&uaw=0&are=1&frm=0&pscdl=noapi&_eu=AAAAAAQ&_s=1&tag_exp=101509157~103116026~103200004~103233427~104527906~104528500~104684208~104684211~104948813~115480710~115834636~115834638~115868795~115868797&sid=1760442793&sct=1&seg=1&dl=https%3A%2F%2Fgeosanbattle.com%2F%3Fs%3DMG%2520RX-78-2%2520Gundam%2520Ver.%25203.0%26post_type%3Dproduct&dt=Resultados%20de%20la%20b%C3%BAsqueda%20de%20%C2%ABMG%20RX-78-2%20Gundam%20Ver.%203.0%C2%BB&en=page_view&_ee=1&tfd=6600",
+    "method": "POST"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/advanced-product-labels-for-woocommerce/berocket/assets/fonts/fontawesome-webfont.woff2?v=4.7.0",
+    "method": "GET"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/advanced-product-labels-for-woocommerce/berocket/assets/fonts/fontawesome-webfont.woff2?v=4.7.0",
+    "status": 200,
+    "ct": "font/woff2"
+  },
+  {
+    "type": "resp",
+    "url": "https://region1.google-analytics.com/g/collect?v=2&tid=G-Y3CC9T7RH7&gtm=45je5a90h2v873902976za200&_p=1760442853784&gcd=13l3l3l2l1l1&npa=1&dma_cps=syphamo&dma=1&cid=831946708.1760442794&ul=en-150&sr=1280x720&uaa=x86&uab=64&uafvl=HeadlessChrome%3B141.0.7390.37%7CNot%253FA_Brand%3B8.0.0.0%7CChromium%3B141.0.7390.37&uamb=0&uam=&uap=Windows&uapv=10.0&uaw=0&are=1&frm=0&pscdl=noapi&_eu=AAAAAAQ&_s=1&tag_exp=101509157~103116026~103200004~103233427~104527906~104528500~104684208~104684211~104948813~115480710~115834636~115834638~115868795~115868797&sid=1760442793&sct=1&seg=1&dl=https%3A%2F%2Fgeosanbattle.com%2F%3Fs%3DMG%2520RX-78-2%2520Gundam%2520Ver.%25203.0%26post_type%3Dproduct&dt=Resultados%20de%20la%20b%C3%BAsqueda%20de%20%C2%ABMG%20RX-78-2%20Gundam%20Ver.%203.0%C2%BB&en=page_view&_ee=1&tfd=6600",
+    "status": 204,
+    "ct": "text/plain",
+    "found": false,
+    "snippet": ""
+  },
+  {
+    "type": "req",
+    "url": "https://fonts.googleapis.com/css?family=Armata&ver=6.2.8",
+    "method": "GET"
+  },
+  {
+    "type": "resp",
+    "url": "https://fonts.googleapis.com/css?family=Armata&ver=6.2.8",
+    "status": 200,
+    "ct": "text/css; charset=utf-8"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-includes/js/api-request.min.js?ver=6.2.8",
+    "method": "GET"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-includes/js/api-request.min.js?ver=6.2.8",
+    "status": 200,
+    "ct": "application/javascript"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/yith-woocommerce-ajax-product-filter-premium/assets/js/yith-wcan-frontend.min.js?ver=3.11.2",
+    "method": "GET"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/yith-woocommerce-ajax-product-filter-premium/assets/js/yith-wcan-frontend.min.js?ver=3.11.2",
+    "status": 200,
+    "ct": "application/javascript"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/yith-woocommerce-ajax-product-filter-premium/assets/js/yith-wcan-frontend-premium.min.js?ver=3.11.2",
+    "method": "GET"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/yith-woocommerce-ajax-product-filter-premium/assets/js/yith-wcan-frontend-premium.min.js?ver=3.11.2",
+    "status": 200,
+    "ct": "application/javascript"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/?s=MG%20RX-78-2%20Gundam%20Ver.%203.0&post_type=product",
+    "status": 200,
+    "ct": "text/html; charset=UTF-8",
+    "found": false,
+    "snippet": ""
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/correosoficial/ecommerce_common_lib/views/js/ajax.js?ver=1.3.4.0",
+    "method": "GET"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/correosoficial/ecommerce_common_lib/views/js/ajax.js?ver=1.3.4.0",
+    "status": 200,
+    "ct": "application/javascript"
+  },
+  {
+    "type": "req",
+    "url": "https://geosanbattle.com/wp-content/plugins/correosoficial/js/ajax_wc_checkout.js?ver=1.3.4.0",
+    "method": "GET"
+  },
+  {
+    "type": "resp",
+    "url": "https://geosanbattle.com/wp-content/plugins/correosoficial/js/ajax_wc_checkout.js?ver=1.3.4.0",
+    "status": 200,
+    "ct": "application/javascript"
+  },
+  {
+    "type": "req",
+    "url": "https://www.facebook.com/tr/?id=208362750226082&ev=PageView&dl=https%3A%2F%2Fgeosanbattle.com%2F%3Fs%3DMG%2520RX-78-2%2520Gundam%2520Ver.%25203.0%26post_type%3Dproduct&rl=&if=false&ts=1760442854352&cd[source]=woocommerce_0&cd[version]=7.5.1&cd[pluginVersion]=3.5.9&cd[user_data]=%7B%7D&sw=1280&sh=720&v=2.9.235&r=stable&a=woocommerce_0-7.5.1-3.5.9&ec=0&o=4126&fbp=fb.1.1760442793639.47967275770981579&ler=empty&cdl=API_unavailable&pmd[title]=Resultados%20de%20la%20b%C3%BAsqueda%20de%20%C2%ABMG%20RX-78-2%20Gundam%20Ver.%203.0%C2%BB&pmd[contents]=%5B%5D&plt=7116.199999988079&it=1760442853823&coo=false&eid=03ff83cb-34b8-402e-aeed-602c1da9389c&expv2[0]=pl1&expv2[1]=el2&expv2[2]=bc1&rqm=GET",
+    "method": "GET"
+  },
+  {
+    "type": "req",
+    "url": "https://www.facebook.com/privacy_sandbox/pixel/register/trigger/?id=208362750226082&ev=PageView&dl=https%3A%2F%2Fgeosanbattle.com%2F%3Fs%3DMG%2520RX-78-2%2520Gundam%2520Ver.%25203.0%26post_type%3Dproduct&rl=&if=false&ts=1760442854352&cd[source]=woocommerce_0&cd[version]=7.5.1&cd[pluginVersion]=3.5.9&cd[user_data]=%7B%7D&sw=1280&sh=720&v=2.9.235&r=stable&a=woocommerce_0-7.5.1-3.5.9&ec=0&o=4126&fbp=fb.1.1760442793639.47967275770981579&ler=empty&cdl=API_unavailable&pmd[title]=Resultados%20de%20la%20b%C3%BAsqueda%20de%20%C2%ABMG%20RX-78-2%20Gundam%20Ver.%203.0%C2%BB&pmd[contents]=%5B%5D&plt=7116.199999988079&it=1760442853823&coo=false&eid=03ff83cb-34b8-402e-aeed-602c1da9389c&expv2[0]=pl1&expv2[1]=el2&expv2[2]=bc1&rqm=FGET",
+    "method": "GET"
+  },
+  {
+    "type": "resp",
+    "url": "https://www.facebook.com/tr/?id=208362750226082&ev=PageView&dl=https%3A%2F%2Fgeosanbattle.com%2F%3Fs%3DMG%2520RX-78-2%2520Gundam%2520Ver.%25203.0%26post_type%3Dproduct&rl=&if=false&ts=1760442854352&cd[source]=woocommerce_0&cd[version]=7.5.1&cd[pluginVersion]=3.5.9&cd[user_data]=%7B%7D&sw=1280&sh=720&v=2.9.235&r=stable&a=woocommerce_0-7.5.1-3.5.9&ec=0&o=4126&fbp=fb.1.1760442793639.47967275770981579&ler=empty&cdl=API_unavailable&pmd[title]=Resultados%20de%20la%20b%C3%BAsqueda%20de%20%C2%ABMG%20RX-78-2%20Gundam%20Ver.%203.0%C2%BB&pmd[contents]=%5B%5D&plt=7116.199999988079&it=1760442853823&coo=false&eid=03ff83cb-34b8-402e-aeed-602c1da9389c&expv2[0]=pl1&expv2[1]=el2&expv2[2]=bc1&rqm=GET",
+    "status": 200,
+    "ct": "text/plain",
+    "found": false,
+    "snippet": ""
+  },
+  {
+    "type": "resp",
+    "url": "https://www.facebook.com/privacy_sandbox/pixel/register/trigger/?id=208362750226082&ev=PageView&dl=https%3A%2F%2Fgeosanbattle.com%2F%3Fs%3DMG%2520RX-78-2%2520Gundam%2520Ver.%25203.0%26post_type%3Dproduct&rl=&if=false&ts=1760442854352&cd[source]=woocommerce_0&cd[version]=7.5.1&cd[pluginVersion]=3.5.9&cd[user_data]=%7B%7D&sw=1280&sh=720&v=2.9.235&r=stable&a=woocommerce_0-7.5.1-3.5.9&ec=0&o=4126&fbp=fb.1.1760442793639.47967275770981579&ler=empty&cdl=API_unavailable&pmd[title]=Resultados%20de%20la%20b%C3%BAsqueda%20de%20%C2%ABMG%20RX-78-2%20Gundam%20Ver.%203.0%C2%BB&pmd[contents]=%5B%5D&plt=7116.199999988079&it=1760442853823&coo=false&eid=03ff83cb-34b8-402e-aeed-602c1da9389c&expv2[0]=pl1&expv2[1]=el2&expv2[2]=bc1&rqm=FGET",
+    "status": 200,
+    "ct": "image/png"
+  },
+  {
+    "type": "req",
+    "url": "https://region1.google-analytics.com/g/collect?v=2&tid=G-Y3CC9T7RH7&gtm=45je5a90h2v873902976za200&_p=1760442853784&gcd=13l3l3l2l1l1&npa=1&dma_cps=syphamo&dma=1&cid=831946708.1760442794&ul=en-150&sr=1280x720&uaa=x86&uab=64&uafvl=HeadlessChrome%3B141.0.7390.37%7CNot%253FA_Brand%3B8.0.0.0%7CChromium%3B141.0.7390.37&uamb=0&uam=&uap=Windows&uapv=10.0&uaw=0&are=1&frm=0&pscdl=noapi&_eu=AEAAAAQ&tag_exp=101509157~103116026~103200004~103233427~104527906~104528500~104684208~104684211~104948813~115480710~115834636~115834638~115868795~115868797&sid=1760442793&sct=1&seg=1&dl=https%3A%2F%2Fgeosanbattle.com%2F%3Fs%3DMG%2520RX-78-2%2520Gundam%2520Ver.%25203.0%26post_type%3Dproduct&dt=Resultados%20de%20la%20b%C3%BAsqueda%20de%20%C2%ABMG%20RX-78-2%20Gundam%20Ver.%203.0%C2%BB&_s=2&tfd=11602",
+    "method": "POST"
+  },
+  {
+    "type": "resp",
+    "url": "https://region1.google-analytics.com/g/collect?v=2&tid=G-Y3CC9T7RH7&gtm=45je5a90h2v873902976za200&_p=1760442853784&gcd=13l3l3l2l1l1&npa=1&dma_cps=syphamo&dma=1&cid=831946708.1760442794&ul=en-150&sr=1280x720&uaa=x86&uab=64&uafvl=HeadlessChrome%3B141.0.7390.37%7CNot%253FA_Brand%3B8.0.0.0%7CChromium%3B141.0.7390.37&uamb=0&uam=&uap=Windows&uapv=10.0&uaw=0&are=1&frm=0&pscdl=noapi&_eu=AEAAAAQ&tag_exp=101509157~103116026~103200004~103233427~104527906~104528500~104684208~104684211~104948813~115480710~115834636~115834638~115868795~115868797&sid=1760442793&sct=1&seg=1&dl=https%3A%2F%2Fgeosanbattle.com%2F%3Fs%3DMG%2520RX-78-2%2520Gundam%2520Ver.%25203.0%26post_type%3Dproduct&dt=Resultados%20de%20la%20b%C3%BAsqueda%20de%20%C2%ABMG%20RX-78-2%20Gundam%20Ver.%203.0%C2%BB&_s=2&tfd=11602",
+    "status": 204,
+    "ct": "text/plain",
+    "found": false,
+    "snippet": ""
+  }
+]
