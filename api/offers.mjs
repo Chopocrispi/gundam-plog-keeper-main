@@ -226,6 +226,22 @@ async function htmlJsonLd(url, source, currencyGuess = 'USD', tokens) {
 function makeAbsolutizer(base) {
   return (href) => href.startsWith('http') ? href : (href.startsWith('/') ? `${base}${href}` : `${base}/${href}`);
 }
+
+// Run the CLI fetch script in a child process (used to mix full-script searches into API)
+async function runFetchOffersScript(query, grade, timeoutMs = 25000){
+  try{
+    const { spawn } = await import('node:child_process');
+    return await new Promise((resolve)=>{
+      try{
+        const args = ['scripts/fetch-offers.mjs','--query', query, '--grade', grade];
+        const p = spawn(process.execPath, args, { stdio: 'ignore' });
+        const to = setTimeout(()=>{ try{ p.kill(); }catch(e){}; resolve(false); }, timeoutMs);
+        p.on('close', (code)=>{ clearTimeout(to); resolve(code === 0); });
+        p.on('error', ()=>{ clearTimeout(to); resolve(false); });
+      }catch(e){ resolve(false); }
+    });
+  }catch(e){ return false; }
+}
 async function findProductLinks(searchUrl, linkPredicate, absolutize) {
   try {
     const cheerio = await getCheerio();
@@ -252,7 +268,11 @@ export default async function handler(req, res) {
       res.status(400).json({ error: 'Missing query' });
       return;
     }
-    const variants = queryVariants(q, grade);
+  const variants = queryVariants(q, grade);
+
+  // Run the full-script fetch to ensure script-level discovery (sitemaps, Playwright, deep probes)
+  // This is intentionally best-effort and time-limited.
+  await runFetchOffersScript(q, grade, 20000).catch(()=>false);
 
     // Shopify domains across multiple regions
     const shopifyDomains = [
@@ -298,12 +318,26 @@ export default async function handler(req, res) {
           try{
             // use the shared geosan helpers (lightweight, no cheerio dependency here)
             const geosan = await import('../scripts/lib/geosan.mjs');
-            const links = await geosan.geosanPickLinks(q, grade).catch(()=>[]);
+            let links = [];
+            try{
+              links = await geosan.geosanPickLinks(q, grade);
+              console.debug('geosan: links found', Array.isArray(links)?links.length:0);
+            }catch(e){ console.debug('geosan: pickLinks error', String(e)); links = []; }
             const results = [];
+            try{
+              const cheerioModule = await import('cheerio').catch(()=>null);
+              console.debug('geosan: cheerio available', !!cheerioModule);
+            }catch(e){ /* ignore */ }
             for (const url of Array.from(new Set(links)).slice(0,20)) {
-              results.push(...await htmlJsonLd(url, 'Geosan Battle', 'EUR', coreTokens(q, grade)));
+              try{
+                const parsed = await htmlJsonLd(url, 'Geosan Battle', 'EUR', coreTokens(q, grade)).catch(()=>[]);
+                console.debug('geosan: parsed items from', url, parsed.length);
+                results.push(...parsed);
+              }catch(e){ console.debug('geosan: htmlJsonLd error', String(e)); }
             }
-            return geosan.filterGeosanItems(results, q, grade);
+            const filtered = geosan.filterGeosanItems(results, q, grade);
+            console.debug('geosan: filtered count', filtered.length);
+            return filtered;
           }catch(e){ return []; }
         })(),
       // Newtype specific adapter (site uses /p/<id>/h/<handle> links, product.js may be available)
@@ -541,6 +575,42 @@ export default async function handler(req, res) {
   ];
     const settled = await Promise.allSettled(tasks);
     const offers = settled.flatMap(r => r.status === 'fulfilled' ? r.value : []);
+    // If Geosan or Newtype produced no results, fall back to running the main script
+    const hasGeosan = offers.some(o => /geosanbattle|geosan-battle/.test(o.url || '') || (o.store||'').toLowerCase().includes('geosan'));
+    const hasNewtype = offers.some(o => (o.store||'').toLowerCase().includes('newtype') || /newtype\.us/.test(o.url||''));
+
+    async function runFetchOffersFallback(query, grade){
+      const { spawn } = await import('node:child_process');
+      return new Promise((resolve) => {
+        try{
+          const args = ['scripts/fetch-offers.mjs','--query', query, '--grade', grade];
+          const p = spawn(process.execPath, args, { stdio: 'ignore' });
+          const to = setTimeout(()=>{ try{ p.kill(); }catch(e){}; resolve(false); }, 25000);
+          p.on('close', (code)=>{ clearTimeout(to); resolve(code === 0); });
+          p.on('error', ()=>{ clearTimeout(to); resolve(false); });
+        }catch(e){ resolve(false); }
+      });
+    }
+
+    const needFallback = !hasGeosan || !hasNewtype;
+    if(needFallback){
+      // run fallback but don't block excessively
+      const ok = await runFetchOffersFallback(q, grade).catch(()=>false);
+      if(ok){
+        try{
+          const fs = await import('node:fs');
+          const path = normalize(`${abbr(grade)} ${q}`.trim());
+          const raw = fs.existsSync('public/offers.json') ? fs.readFileSync('public/offers.json','utf8') : null;
+          if(raw){
+            const idx = JSON.parse(raw || '{}');
+            const extra = idx[path] || [];
+            // merge extra offers that aren't already present (by url)
+            const urls = new Set(offers.map(o => o.url));
+            for(const e of extra){ if(e && e.url && !urls.has(e.url)) offers.push(e); }
+          }
+        }catch(e){ /* ignore fallback read errors */ }
+      }
+    }
     // Dedupe by hostname, keep lowest price. Also filter out obvious Geosan promos/raffles early.
     const seen = new Map();
   const promoRegex = /\b(rifa|rifar|rifando|cesta|navidad|cesta de navidad|sorteo|raffle|promocional|carta|pack|package)\b/i;
@@ -589,8 +659,40 @@ export default async function handler(req, res) {
       if(typeof b.price === 'number') return 1;
       return 0;
     });
+    // Merge in results from public/offers.json produced by scripts/fetch-offers.mjs (if present)
+    try{
+      const fs = await import('node:fs');
+      const key = normalize(`${abbr(grade)} ${q}`.trim());
+      if(fs.existsSync('public/offers.json')){
+        const idx = JSON.parse(fs.readFileSync('public/offers.json','utf8') || '{}');
+        const extra = idx[key] || [];
+        const urls = new Set(out.map(o => o.url));
+        for(const e of extra){ if(e && e.url && !urls.has(e.url)) out.push(e); }
+      }
+    }catch(e){ /* ignore merge errors */ }
+
+    // final dedupe by url (prefer numeric price and lower price)
+    const byUrl = new Map();
+    for(const o of out){
+      if(!o || !o.url) continue;
+      const prev = byUrl.get(o.url);
+      if(!prev) byUrl.set(o.url, o);
+      else if(typeof o.price === 'number' && typeof prev.price === 'number'){
+        if(o.price < prev.price) byUrl.set(o.url, o);
+      } else if(typeof o.price === 'number' && prev.price == null){
+        byUrl.set(o.url, o);
+      }
+    }
+    const finalOffers = Array.from(byUrl.values());
+    finalOffers.sort((a,b)=>{
+      if(typeof a.price === 'number' && typeof b.price === 'number') return a.price - b.price;
+      if(typeof a.price === 'number') return -1;
+      if(typeof b.price === 'number') return 1;
+      return 0;
+    });
+
     res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
-    res.status(200).json({ key: normalize(`${abbr(grade)} ${q}`.trim()), offers: out });
+    res.status(200).json({ key: normalize(`${abbr(grade)} ${q}`.trim()), offers: finalOffers });
   } catch (e) {
     console.error('offers api error', e);
     res.status(500).json({ error: 'internal_error', message: String(e?.message || e) });
