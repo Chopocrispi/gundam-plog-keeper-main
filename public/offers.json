@@ -740,6 +740,56 @@
       "url": "https://gundamplanet.com/products/gd-97-mg-rx-78-2-gundam-ver-3-0-decal",
       "price": 6.95,
       "currency": "USD"
+    },
+    {
+      "store": "Newtype",
+      "title": "Bandai MG RX-78-2 Gundam (Ver. 3.0) - Newtype",
+      "url": "https://newtype.us/p/hQ6JrRteE0z0yAO3koTk/h/mg-rx-78-2-gundam-ver-30",
+      "price": 55,
+      "currency": "USD"
+    },
+    {
+      "store": "Newtype",
+      "title": "Bandai GD-97 MG RX-78-2 Gundam Ver. 3.0 - Newtype",
+      "url": "https://newtype.us/p/xT7U5orZaEun1r56xRQ3/h/gd-97-mg-rx-78-2-gundam-ver-30",
+      "price": 6,
+      "currency": "USD"
+    },
+    {
+      "store": "Geosan Battle",
+      "title": "MG 1/100 RX-78-2 GUNDAM VER 3.0 - Nº 172",
+      "url": "https://geosanbattle.com/producto/mg-1-100-rx-78-2-gundam-ver-3-0/",
+      "price": 57.24,
+      "currency": "USD",
+      "availability": "http://schema.org/OutOfStock"
+    },
+    {
+      "store": "USA Gundam Store",
+      "title": "Gundam Decal No.97 MG RX-78-2 Gundam Ver. 3.0 Multiuse Decal Sheets",
+      "url": "https://usagundamstore.com/products/gundam-decal-no-97-mg-rx-78-2-gundam-ver-3-0-multiuse-decal-sheets",
+      "price": 5.99,
+      "currency": "USD"
+    },
+    {
+      "store": "USA Gundam Store",
+      "title": "MG 1/100 RX-78-2 Gundam Ver. 3.0",
+      "url": "https://usagundamstore.com/products/mg-1-100-rx-78-2-gundam-ver-3-0",
+      "price": 54.99,
+      "currency": "USD"
+    },
+    {
+      "store": "Gundam Planet",
+      "title": "MG RX-78-2 Gundam Ver 3.0",
+      "url": "https://gundamplanet.com/products/mg-rx-78-2-gundam-ver-3-0",
+      "price": 62.95,
+      "currency": "USD"
+    },
+    {
+      "store": "Gundam Planet",
+      "title": "GD-97 MG RX-78-2 Gundam Ver 3.0 Decal",
+      "url": "https://gundamplanet.com/products/gd-97-mg-rx-78-2-gundam-ver-3-0-decal",
+      "price": 6.95,
+      "currency": "USD"
     }
   ]
 }

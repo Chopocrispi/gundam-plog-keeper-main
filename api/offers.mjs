@@ -72,6 +72,19 @@ function coreTokens(q, grade) {
   return Array.from(new Set(important));
 }
 
+function canonicalAlnum(s){
+  return (s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+}
+function extractModelParts(s){
+  if(!s) return null;
+  const c = canonicalAlnum(s);
+  const m = c.match(/rx(\d{2})(\d)?/);
+  if(!m) return null;
+  const base = `rx${m[1]}`;
+  const variant = m[2] || null;
+  return { base, variant };
+}
+
 // Basic relevance filter to avoid accessory/MSG/Kotobukiya hits and require token overlap
 function isRelevantTitle(title, tokens) {
   const tt = tokenize(title);
@@ -280,28 +293,62 @@ export default async function handler(req, res) {
       // Shopify stores
   ...shopifyDomains.map(([domain, label]) => shopify(domain, q, label, grade)),
       // Non-Shopify and international stores with HTML/JSON-LD parsing
-      // Geosan Battle (ES, WooCommerce)
+      // Geosan Battle (ES, WooCommerce) - delegate to shared helper
+        (async () => {
+          try{
+            // use the shared geosan helpers (lightweight, no cheerio dependency here)
+            const geosan = await import('../scripts/lib/geosan.mjs');
+            const links = await geosan.geosanPickLinks(q, grade).catch(()=>[]);
+            const results = [];
+            for (const url of Array.from(new Set(links)).slice(0,20)) {
+              results.push(...await htmlJsonLd(url, 'Geosan Battle', 'EUR', coreTokens(q, grade)));
+            }
+            return geosan.filterGeosanItems(results, q, grade);
+          }catch(e){ return []; }
+        })(),
+      // Newtype specific adapter (site uses /p/<id>/h/<handle> links, product.js may be available)
       (async () => {
-        const base = 'https://geosanbattle.com';
-        const abs = makeAbsolutizer(base);
-        let links = [];
-        // Prefer product search: /?s=term&post_type=product
-        for (const v of variants) {
-          const l = await findProductLinks(`${base}/?s=${encodeURIComponent(v)}&post_type=product`, (href) => href.includes('/producto/'), abs);
-          links.push(...l);
-          if (links.length) break;
-        }
-        // Fallback: shop page search (some themes support query on shop URL)
-        if (!links.length) {
-          for (const v of variants) {
-            const l = await findProductLinks(`${base}/tienda-model-kit-gundam/?s=${encodeURIComponent(v)}`, (href) => href.includes('/producto/'), abs);
-            links.push(...l);
-            if (links.length) break;
+        const d = 'newtype.us';
+        const base = `https://${d}`;
+        try{
+          const html = await fetchText(`${base}/search/?q=${encodeURIComponent(q)}`);
+          const cheerio = await getCheerio();
+          if(!cheerio) return [];
+          const $ = cheerio.load(html);
+          const anchors = $('a[href]').map((_, el) => $(el).attr('href')).get();
+          const handleMap = new Map();
+          for(const a of anchors){
+            if(!a) continue;
+            const m = a.match(/\/h\/([^\/\?#]+)/);
+            if(m){ const handle = m[1]; if(!handleMap.has(handle)) handleMap.set(handle, a); }
           }
-        }
-        const results = [];
-  for (const url of links) results.push(...await htmlJsonLd(url, 'Geosan Battle', 'EUR', coreTokens(v, grade)));
-        return results;
+          const out = [];
+          for(const [h, href] of handleMap.entries()){
+            // try product.js first
+            const pjs = await (async ()=>{ try{ return await fetchJson(`${base}/products/${h}.js`); }catch(e){ return null; } })();
+            if(pjs && pjs.title){
+              const price = typeof pjs.price === 'number' ? Math.round(pjs.price)/100 : null;
+              out.push({ store: 'Newtype', title: pjs.title, url: `${base}/products/${h}`, price, currency: 'USD' });
+              continue;
+            }
+            // fallback: fetch anchor URL and parse JSON-LD or meta
+            const prodUrl = href.startsWith('http') ? href : (href.startsWith('/') ? `${base}${href}` : `${base}/${href}`);
+            try{
+              const items = await htmlJsonLd(prodUrl, 'Newtype', 'USD', coreTokens(q, grade));
+              if(items && items.length) out.push(...items);
+              else {
+                const page = await fetchText(prodUrl).catch(()=>null);
+                if(page){
+                  const $$ = cheerio.load(page);
+                  const title = $$('h1').first().text().trim() || $$('meta[property="og:title"]').attr('content') || h;
+                  const priceInfo = null; // rely on htmlJsonLd above; cheap fallback omitted
+                  out.push({ store: 'Newtype', title, url: prodUrl, price: null, currency: 'USD' });
+                }
+              }
+            }catch(e){}
+          }
+          return out;
+        }catch(e){ return []; }
       })(),
       // HobbyDigi (HK) — multiple locales
       (async () => {
@@ -322,7 +369,7 @@ export default async function handler(req, res) {
           if (links.length) break;
         }
         const results = [];
-  for (const url of links) results.push(...await htmlJsonLd(url, 'HobbyDigi', 'HKD', coreTokens(v, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'HobbyDigi', 'HKD', coreTokens(q, grade)));
         return results;
       })(),
       // Mighty Ape (AU/NZ)
@@ -336,7 +383,7 @@ export default async function handler(req, res) {
           if (links.length) break;
         }
         const results = [];
-  for (const url of links) results.push(...await htmlJsonLd(url, 'Mighty Ape', 'AUD', coreTokens(v, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'Mighty Ape', 'AUD', coreTokens(q, grade)));
         return results;
       })(),
       // Entertainment Earth (US)
@@ -350,7 +397,7 @@ export default async function handler(req, res) {
           if (links.length) break;
         }
         const results = [];
-  for (const url of links) results.push(...await htmlJsonLd(url, 'Entertainment Earth', 'USD', coreTokens(v, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'Entertainment Earth', 'USD', coreTokens(q, grade)));
         return results;
       })(),
       // ZAVVI (US/UK/EU)
@@ -364,7 +411,7 @@ export default async function handler(req, res) {
           if (links.length) break;
         }
         const results = [];
-  for (const url of links) results.push(...await htmlJsonLd(url, 'ZAVVI', 'USD', coreTokens(v, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'ZAVVI', 'USD', coreTokens(q, grade)));
         return results;
       })(),
       (async () => {
@@ -377,7 +424,7 @@ export default async function handler(req, res) {
         if (links.length) break;
       }
       const results = [];
-  for (const url of links) results.push(...await htmlJsonLd(url, 'HLJ', 'JPY', coreTokens(v, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'HLJ', 'JPY', coreTokens(q, grade)));
       return results;
     })(),
     (async () => {
@@ -390,7 +437,7 @@ export default async function handler(req, res) {
         if (links.length) break;
       }
       const results = [];
-  for (const url of links) results.push(...await htmlJsonLd(url, 'HobbySearch', 'JPY', coreTokens(v, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'HobbySearch', 'JPY', coreTokens(q, grade)));
       return results;
     })(),
     (async () => {
@@ -403,7 +450,7 @@ export default async function handler(req, res) {
         if (links.length) break;
       }
       const results = [];
-  for (const url of links) results.push(...await htmlJsonLd(url, 'Plaza Japan', 'USD', coreTokens(v, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'Plaza Japan', 'USD', coreTokens(q, grade)));
       return results;
     })(),
     (async () => {
@@ -416,7 +463,7 @@ export default async function handler(req, res) {
         if (links.length) break;
       }
       const results = [];
-  for (const url of links) results.push(...await htmlJsonLd(url, 'AmiAmi', 'JPY', coreTokens(v, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'AmiAmi', 'JPY', coreTokens(q, grade)));
       return results;
     })(),
     (async () => {
@@ -429,7 +476,7 @@ export default async function handler(req, res) {
         if (links.length) break;
       }
       const results = [];
-  for (const url of links) results.push(...await htmlJsonLd(url, 'Nin-Nin Game', 'EUR', coreTokens(v, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'Nin-Nin Game', 'EUR', coreTokens(q, grade)));
       return results;
     })(),
     // BigBadToyStore (BBTS)
@@ -444,7 +491,7 @@ export default async function handler(req, res) {
         if (links.length) break;
       }
       const results = [];
-  for (const url of links) results.push(...await htmlJsonLd(url, 'BigBadToyStore', 'USD', coreTokens(v, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'BigBadToyStore', 'USD', coreTokens(q, grade)));
       return results;
     })(),
     // Premium Bandai USA
@@ -460,7 +507,7 @@ export default async function handler(req, res) {
         if (links.length) break;
       }
       const results = [];
-  for (const url of links) results.push(...await htmlJsonLd(url, 'Premium Bandai USA', 'USD', coreTokens(v, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'Premium Bandai USA', 'USD', coreTokens(q, grade)));
       return results;
     })(),
     // MyKombini (FR)
@@ -474,7 +521,7 @@ export default async function handler(req, res) {
         if (links.length) break;
       }
       const results = [];
-  for (const url of links) results.push(...await htmlJsonLd(url, 'MyKombini', 'EUR', coreTokens(v, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'MyKombini', 'EUR', coreTokens(q, grade)));
       return results;
     })(),
     // Tokyo Otaku Mode
@@ -488,23 +535,60 @@ export default async function handler(req, res) {
         if (links.length) break;
       }
       const results = [];
-  for (const url of links) results.push(...await htmlJsonLd(url, 'Tokyo Otaku Mode', 'USD', coreTokens(v, grade)));
+  for (const url of links) results.push(...await htmlJsonLd(url, 'Tokyo Otaku Mode', 'USD', coreTokens(q, grade)));
       return results;
     })(),
   ];
     const settled = await Promise.allSettled(tasks);
     const offers = settled.flatMap(r => r.status === 'fulfilled' ? r.value : []);
-    // Dedupe by hostname, keep lowest price
+    // Dedupe by hostname, keep lowest price. Also filter out obvious Geosan promos/raffles early.
     const seen = new Map();
+  const promoRegex = /\b(rifa|rifar|rifando|cesta|navidad|cesta de navidad|sorteo|raffle|promocional|carta|pack|package)\b/i;
     for (const o of offers) {
       if (!o?.url) continue;
+      // drop obvious Geosan promo/raffle items
+      if (/geosanbattle/.test(o.url || '') && promoRegex.test(o.title || '')) continue;
       try {
         const host = new URL(o.url).hostname.replace(/^www\./, '');
         const prev = seen.get(host);
-        if (!prev || (typeof o.price === 'number' && o.price < prev.price)) seen.set(host, o);
+        if (!prev) seen.set(host, o);
+        else if (typeof o.price === 'number' && typeof prev.price === 'number') {
+          if (o.price < prev.price) seen.set(host, o);
+        } else if (typeof o.price === 'number' && prev.price == null) {
+          seen.set(host, o);
+        }
       } catch {}
     }
-    const out = Array.from(seen.values()).filter(o => typeof o.price === 'number').sort((a, b) => a.price - b.price);
+    // Keep offers even if price is missing when title strongly matches query tokens
+    const tokens = coreTokens(q, grade);
+    const strongMatches = [];
+    const fallback = [];
+    for (const o of Array.from(seen.values())){
+      const title = (o.title||'').toLowerCase();
+      const present = tokens.filter(t => title.includes(t));
+      if(present.length >= Math.min(2, Math.max(1, tokens.length))) strongMatches.push(o);
+      else fallback.push(o);
+    }
+    let out = (strongMatches.length ? strongMatches : fallback).filter(o => o && o.url);
+    // If the query contains a model (e.g., RX-78-2), prefer offers matching that model base/variant
+    const queryParts = extractModelParts(q);
+    if(queryParts){
+      const matches = out.filter(o => {
+        const p = extractModelParts(o.title || o.url || '');
+        if(!p) return false;
+        if(p.base !== queryParts.base) return false;
+        if(queryParts.variant) return p.variant === queryParts.variant;
+        return true;
+      });
+      if(matches.length) out = matches;
+    }
+    // sort by numeric price when available, else leave as-is
+    out.sort((a,b)=> {
+      if(typeof a.price === 'number' && typeof b.price === 'number') return a.price - b.price;
+      if(typeof a.price === 'number') return -1;
+      if(typeof b.price === 'number') return 1;
+      return 0;
+    });
     res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
     res.status(200).json({ key: normalize(`${abbr(grade)} ${q}`.trim()), offers: out });
   } catch (e) {
