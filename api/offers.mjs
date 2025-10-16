@@ -249,6 +249,10 @@ export default async function handler(req, res) {
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.VITE_PUBLIC_SUPABASE_URL;
     const supabaseAnon = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
     if (supabaseUrl && supabaseAnon) {
+      // When Supabase credentials are present, use the `products` table exclusively
+      // and do NOT fall back to live scraping. This prevents the endpoint from
+      // performing network scraping in serverless deployments where the DB is
+      // expected to hold the canonical product/offer data.
       try {
         const supabase = createSupabaseClient(supabaseUrl, supabaseAnon, { auth: { persistSession: false } });
         // Accept raw query strings with punctuation (e.g., parentheses). Decode and normalize.
@@ -256,11 +260,12 @@ export default async function handler(req, res) {
         if (Array.isArray(raw)) raw = raw[0];
         raw = decodeURIComponent(String(raw || '')).trim();
         const slug = raw.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-        const likeSlug = `%${slug}%`;
-        const titleLike = `%${raw.replace(/%/g, '\%')}%`;
 
+        // Build an OR clause that searches normalized URL-like slug or title text.
+        // Use ilike (case-insensitive) with wildcards.
         const orClause = `url.ilike.%${slug}%,title.ilike.%${raw}%`;
-        // Query Supabase products table for matching rows
+
+        // Query Supabase products table for matching rows. Only active products.
         const { data, error } = await supabase
           .from('products')
           .select('store,title,url,price,currency,extra,availability')
@@ -269,34 +274,40 @@ export default async function handler(req, res) {
           .order('price', { ascending: true })
           .limit(2000);
 
-        if (!error && Array.isArray(data)) {
-          // Map DB rows to offer objects; allow price to be null if DB doesn't have it
-          const offers = (data || []).map(r => ({
-            store: r.store || 'Store',
-            title: r.title || '',
-            url: r.url || '',
-            price: r.price === null || r.price === undefined ? null : Number(r.price),
-            currency: r.currency || 'USD',
-            availability: r.availability || undefined,
-          })).filter(o => o.url);
-
-          // Deduplicate by URL and return
-          const seen = new Set();
-          const dedup = [];
-          for (const o of offers) {
-            if (!o.url) continue;
-            if (seen.has(o.url)) continue;
-            seen.add(o.url);
-            dedup.push(o);
-          }
-          res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
-          res.status(200).json(dedup);
+        if (error) {
+          console.warn('supabase query error', error);
+          res.status(500).json({ error: 'supabase_query_failed', message: String(error.message || error) });
           return;
         }
-        // otherwise fall through to scraping fallback
+
+        // Map DB rows to offer objects; allow price to be null if DB doesn't have it
+        const offers = (data || []).map(r => ({
+          store: r.store || 'Store',
+          title: r.title || '',
+          url: r.url || '',
+          price: r.price === null || r.price === undefined ? null : Number(r.price),
+          currency: r.currency || 'USD',
+          availability: r.availability || undefined,
+        })).filter(o => o.url);
+
+        // Deduplicate by URL and return
+        const seen = new Set();
+        const dedup = [];
+        for (const o of offers) {
+          if (!o.url) continue;
+          if (seen.has(o.url)) continue;
+          seen.add(o.url);
+          dedup.push(o);
+        }
+
+        res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+        // Return DB-backed offers array (no live-scraping fallback when Supabase is configured)
+        res.status(200).json(dedup);
+        return;
       } catch (dbErr) {
-        console.warn('supabase offers fallback failed', dbErr);
-        // continue to scraping fallback
+        console.error('supabase offers query failed', dbErr);
+        res.status(500).json({ error: 'supabase_query_exception', message: String(dbErr) });
+        return;
       }
     }
 
