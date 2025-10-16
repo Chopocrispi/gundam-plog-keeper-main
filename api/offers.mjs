@@ -78,7 +78,8 @@ function abbr(g) {
 }
 
 function tokenize(s) {
-  return normalize(s).split(' ').filter(Boolean);
+  // Split on spaces and hyphens so 'tri-stars' and 'tri stars' become the same tokens
+  return normalize(s).split(/[	\n\r\s-]+/).filter(Boolean);
 }
 
 // Extract core tokens from the query that define the kit (model code and key words),
@@ -256,7 +257,96 @@ async function findProductLinks(searchUrl, linkPredicate, absolutize) {
 
 export default async function handler(req, res) {
   try {
-    const q = (req.query?.query || req.query?.q || '').toString();
+  // Prefer frontend-provided canonical names (effectiveName/providedName)
+  // which the UI may send as part of a live-first search flow. Be defensive:
+  // some runtimes lower-case param names or provide the original query in
+  // the raw url. Try several fallbacks before giving up.
+  let q = '';
+  try {
+    const candidateNames = ['query', 'q', 'effectiveName', 'providedName', 'effectivename', 'providedname', 'effective_name', 'provided_name'];
+    // Try req.query (direct and case-insensitive)
+    const tryFromReqQuery = () => {
+      if (!req.query) return null;
+      // exact keys first
+      for (const n of candidateNames) {
+        if (Object.prototype.hasOwnProperty.call(req.query, n)) return req.query[n];
+      }
+      // case-insensitive match
+      const keys = Object.keys(req.query || {});
+      for (const k of keys) {
+        if (candidateNames.find(n => n.toLowerCase() === k.toLowerCase())) return req.query[k];
+      }
+      return null;
+    };
+
+  let rawVal = tryFromReqQuery();
+  let q_source = rawVal ? 'req.query' : null;
+    // Fallback: parse req.url searchParams (use Host header if available)
+    if (!rawVal && req.url && typeof req.url === 'string') {
+      try {
+        const base = req.headers && req.headers.host ? `http://${req.headers.host}` : 'http://localhost';
+        const u = new URL(req.url, base);
+        for (const n of candidateNames) {
+          const v = u.searchParams.get(n) || u.searchParams.get(n.toLowerCase()) || u.searchParams.get(n.toUpperCase());
+          if (v) { rawVal = v; break; }
+        }
+        if (rawVal) q_source = 'req.url';
+      } catch (e) { /* ignore */ }
+    }
+    // Fallback: some proxies put the original request uri in headers like x-original-url
+    if (!rawVal && req.headers && typeof req.headers === 'object') {
+      const headerCandidates = ['x-original-url', 'x-forwarded-url', 'x-rewrite-url', 'x-forwarded-uri', 'x-original-uri'];
+      for (const h of headerCandidates) {
+        const hv = req.headers[h] || req.headers[h.toLowerCase()];
+        if (!hv) continue;
+        try {
+          const base = req.headers && req.headers.host ? `http://${req.headers.host}` : 'http://localhost';
+          const u2 = new URL(hv, base);
+          for (const n of candidateNames) {
+            const v = u2.searchParams.get(n) || u2.searchParams.get(n.toLowerCase());
+            if (v) { rawVal = v; q_source = `header:${h}`; break; }
+          }
+        } catch (e) { /* ignore parse errors */ }
+        if (rawVal) break;
+      }
+    }
+    // Fallback: check JSON body (for POST clients)
+    if (!rawVal && req.body) {
+      for (const n of candidateNames) {
+        if (Object.prototype.hasOwnProperty.call(req.body, n)) { rawVal = req.body[n]; break; }
+      }
+    }
+    // Final robust fallback: try to regex-extract the param from common locations
+    // Some hosts/proxies or client libraries may place the raw querystring in
+    // req.url or req.originalUrl without populating req.query. Use a case-
+    // insensitive regex to capture common param names and decode pluses.
+    if (!rawVal) {
+      const extractFromString = (s) => {
+        if (!s || typeof s !== 'string') return null;
+        const m = s.match(/[?&](effectiveName|providedName|effectivename|providedname|effective_name|provided_name|query|q)=([^&\n\r]+)/i);
+        if (m && m[2]) return decodeURIComponent(m[2].replace(/\+/g, ' '));
+        return null;
+      };
+      // Try req.url and req.originalUrl
+      rawVal = extractFromString(req.url) || extractFromString(req.originalUrl) || rawVal;
+      if (rawVal) q_source = rawVal ? (req.originalUrl && extractFromString(req.originalUrl) ? 'req.originalUrl' : 'req.url_regex') : q_source;
+      // As a last resort, search stringified headers (some proxies stash the original URL there)
+      if (!rawVal && req.headers) {
+        try {
+          const hs = JSON.stringify(req.headers);
+          rawVal = extractFromString(hs);
+          if (rawVal) q_source = 'headers_regex';
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+  q = rawVal ? String(rawVal) : '';
+  // Attach q_source to req for debug usage later
+  req._q_source = q_source || null;
+  } catch (e) {
+    q = '';
+  }
     const grade = (req.query?.grade || '').toString();
     if (!q) {
       res.status(400).json({ error: 'Missing query' });
@@ -283,7 +373,7 @@ export default async function handler(req, res) {
           return;
         }
         const supabase = createClient(supabaseUrl, supabaseAnon, { auth: { persistSession: false } });
-        // Accept raw query strings with punctuation (e.g., parentheses). Decode and normalize.
+  // Accept raw query strings with punctuation (e.g., parentheses). Decode and normalize.
         let raw = q || '';
         if (Array.isArray(raw)) raw = raw[0];
         raw = decodeURIComponent(String(raw || '')).trim();
@@ -293,15 +383,30 @@ export default async function handler(req, res) {
         const titleSanitized = raw.replace(/[\%\\]/g, '').trim();
         const titleLike = `%${titleSanitized}%`;
 
+  // Sanitize grade for safe ilike usage (remove % and backslashes)
+  const gradeSanitized = String(grade || '').replace(/[\%\\]/g, '').trim();
+
   const selectCols = 'store,title,url,price,currency,extra';
 
         // Build broad candidate query: search for core tokens in url/title using ilike.
         // We'll fetch candidates and then apply stricter filtering in JS to implement
         // the SQL-like semantics (numeric model matching and grade tokens).
-        const mainTokens = coreTokens(raw, grade);
-        // Also include raw tokens (pre-normalization) so forms like 'II' are matched.
-        const rawTokens = (String(raw || '').toLowerCase().replace(/[()]/g, ' ').split(/\s+/).filter(Boolean)).map(t => t.replace(/[^a-z0-9-]/g, ''));
+  const mainTokens = coreTokens(raw, grade);
+  // Also include raw tokens (pre-normalization) so forms like 'II' are matched.
+  const rawTokens = (String(raw || '').toLowerCase().replace(/[()]/g, ' ').split(/\s+/).filter(Boolean)).map(t => t.replace(/[^a-z0-9-]/g, ''));
+  // Extract numeric tokens early so slugVariants can use them
+  const digitTokens = tokenize(raw).filter(t => /\d/.test(t));
         const tokenClauses = [];
+        // Generate slug variants from the raw query to match store product handles/urls
+        const slugBase = raw.toLowerCase().replace(/[^a-z0-9\s-]/g, ' ').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+        const slugVariants = new Set([slugBase]);
+        // If there are numeric tokens, create zero-padded variants and simple numeric suffixes
+        for (const dt of digitTokens) {
+          const digits = (dt.match(/\d+/g) || []).join('');
+          if (!digits) continue;
+          slugVariants.add(slugBase.replace(digits, digits.padStart(3, '0')));
+          slugVariants.add(slugBase.replace(digits, digits));
+        }
         if (mainTokens.length === 0 && rawTokens.length === 0) {
           // fallback to raw term
           tokenClauses.push(`title.ilike.%${titleSanitized}%`);
@@ -312,9 +417,23 @@ export default async function handler(req, res) {
             const tok = String(t || '').trim();
             if (!tok || seenTok.has(tok)) continue;
             seenTok.add(tok);
-            const esc = tok.replace(/%/g, '');
-            tokenClauses.push(`title.ilike.%${esc}%`);
-            tokenClauses.push(`url.ilike.%${esc}%`);
+              const esc = tok.replace(/%/g, '');
+              tokenClauses.push(`title.ilike.%${esc}%`);
+              tokenClauses.push(`url.ilike.%${esc}%`);
+              // Also search common JSON fields stored in `extra` to match SKUs / model codes
+              // Example keys: sku, model_code, model, code, product_code
+              tokenClauses.push(`extra->>sku.ilike.%${esc}%`);
+              tokenClauses.push(`extra->>model_code.ilike.%${esc}%`);
+              tokenClauses.push(`extra->>model.ilike.%${esc}%`);
+              tokenClauses.push(`extra->>code.ilike.%${esc}%`);
+              tokenClauses.push(`extra->>product_code.ilike.%${esc}%`);
+          }
+          // Add clauses that specifically match /products/<slug> URL forms and stored handles
+          for (const s of Array.from(slugVariants)) {
+            if (!s) continue;
+            const sesc = s.replace(/%/g, '');
+            tokenClauses.push(`url.ilike.%/products/${sesc}%`);
+            tokenClauses.push(`extra->>handle.ilike.%${sesc}%`);
           }
         }
 
@@ -323,15 +442,78 @@ export default async function handler(req, res) {
         let data = null;
         let error = null;
         try {
-          const resp = await supabase
-            .from('products')
-            .select(selectCols)
-            .or(orParam)
-            .eq('active', true)
-            .order('price', { ascending: true })
-            .limit(2000);
-          data = resp.data;
-          error = resp.error;
+            // If grade is provided, narrow by grade first (exact or abbreviation), then by title/url
+            let queryBuilder = supabase.from('products').select(selectCols).eq('active', true);
+            if (gradeSanitized) {
+              const gradeAbbrev = abbr(grade) || '';
+              // Use ilike-based grade filtering (safer for multi-word grades). Match synonyms via abbreviation.
+              const clauses = [];
+              clauses.push(`grade.ilike.%${gradeSanitized}%`);
+              if (gradeAbbrev) clauses.push(`grade.ilike.%${gradeAbbrev}%`);
+              queryBuilder = queryBuilder.or(clauses.join(','));
+            }
+            // If we built specific grade filters, still apply the broad or() over title/url/extra
+            if (orParam && orParam.length) {
+              queryBuilder = queryBuilder.or(orParam);
+            }
+            // Final ordering and staged queries to avoid long OR clauses that time out.
+            // Strategy:
+            // 1) Try a focused title ilike('%raw%') with optional grade filter.
+            // 2) If no results, iterate important tokens and accumulate matches (small per-token limits).
+            // 3) Fallback to a limited broad OR query (safe guard on length).
+            let resp = null;
+            let accMap = new Map();
+            try {
+              // 1) Focused title search
+              let q1 = supabase.from('products').select(selectCols).eq('active', true).ilike('title', `%${titleSanitized}%`);
+              if (gradeSanitized) q1 = q1.ilike('grade', `%${gradeSanitized}%`);
+              resp = await q1.order('price', { ascending: true }).limit(200);
+              if (resp && Array.isArray(resp.data) && resp.data.length) {
+                data = resp.data;
+                error = resp.error;
+              } else {
+                // 2) Token-by-token accumulation
+                const tokensForSearch = Array.from(new Set([...(mainTokens || []), ...(rawTokens || [])]));
+                for (const tk of tokensForSearch) {
+                  if (!tk) continue;
+                  try {
+                    let qtok = supabase.from('products').select(selectCols).eq('active', true).ilike('title', `%${tk}%`).limit(100);
+                    if (gradeSanitized) qtok = qtok.ilike('grade', `%${gradeSanitized}%`);
+                    const r = await qtok.order('price', { ascending: true });
+                    if (r && Array.isArray(r.data)) {
+                      for (const row of r.data) {
+                        if (!row || !row.url) continue;
+                        if (!accMap.has(row.url)) accMap.set(row.url, row);
+                        if (accMap.size >= 400) break;
+                      }
+                    }
+                  } catch (e) {
+                    // ignore token-specific failures, try next token
+                  }
+                  if (accMap.size >= 400) break;
+                }
+                if (accMap.size) {
+                  data = Array.from(accMap.values()).slice(0, 400);
+                  error = null;
+                } else {
+                  // 3) Safe fallback: run the original broad OR but with a small limit to avoid timeouts
+                  try {
+                    const safeOr = orParam && orParam.length ? orParam : `title.ilike.%${titleSanitized}%`;
+                    const r2 = await supabase.from('products').select(selectCols).or(safeOr).eq('active', true).order('price', { ascending: true }).limit(200);
+                    data = r2.data;
+                    error = r2.error;
+                  } catch (e) {
+                    // final fallback: empty result set
+                    data = [];
+                    error = e;
+                  }
+                }
+              }
+            } catch (e) {
+              // If anything above throws, surface the error
+              data = data || [];
+              error = e;
+            }
         } catch (e) {
           console.error('supabase broad search failed', e?.message || e);
           res.status(500).json({ error: 'supabase_broad_search_failed', message: String(e) });
@@ -349,8 +531,8 @@ export default async function handler(req, res) {
 
   const gradeAbbr = abbr(grade) || '';
 
-  // Extract numeric tokens from query, e.g., '97' from 'RGM-97' or '097'
-  const digitTokens = tokenize(raw).filter(t => /\d/.test(t));
+    // Extract numeric tokens from query, e.g., '97' from 'RGM-97' or '097'
+  // (digitTokens already computed above)
   // Detect roman numerals present in raw tokens (e.g., II)
   const romanMatch = String(raw || '').toLowerCase().match(/\b(i{1,3}|iv|v|vi|vii|viii|ix|x)\b/);
   const hasRoman = !!romanMatch;
@@ -401,13 +583,35 @@ export default async function handler(req, res) {
           gradeTokens.add('sd');
         }
 
-        const offers = rows.map(r => ({
-          store: r.store || 'Store',
-          title: r.title || '',
-          url: r.url || '',
-          price: r.price === null || r.price === undefined ? null : Number(r.price),
-          currency: r.currency || 'USD',
-        }));
+        const offers = rows.map(r => {
+          // Normalize extra JSON into a searchable string and object
+          let extraText = '';
+          let extraObj = null;
+          try {
+            if (r && r.extra) {
+              if (typeof r.extra === 'string') {
+                extraText = r.extra.toLowerCase();
+                try { extraObj = JSON.parse(r.extra); } catch (e) { extraObj = null; }
+              } else {
+                extraObj = r.extra;
+                extraText = JSON.stringify(r.extra || '').toLowerCase();
+              }
+            }
+          } catch (e) {
+            extraText = '';
+            extraObj = null;
+          }
+          return {
+            store: r.store || 'Store',
+            title: r.title || '',
+            url: r.url || '',
+            price: r.price === null || r.price === undefined ? null : Number(r.price),
+            currency: r.currency || 'USD',
+            extraText,
+            extraObj,
+            _raw: r,
+          };
+        });
 
         // If debug flag is present, return candidate rows with matching diagnostics
         // Use a much faster, limited path for debug to avoid timeouts and skip
@@ -426,14 +630,45 @@ export default async function handler(req, res) {
             const diagnostics = debugRows.map(r => {
               const urlL = (r.url || '').toLowerCase();
               const titleL = (r.title || '').toLowerCase();
-              const text = `${urlL} ${titleL}`;
-              const hasMain = mainTokens.length ? mainTokens.some(t => text.includes(t)) : true;
+              let extraL = '';
+              let extraObjLocal = null;
+              try { extraL = typeof r.extra === 'string' ? r.extra.toLowerCase() : JSON.stringify(r.extra || '').toLowerCase(); extraObjLocal = typeof r.extra === 'string' ? (() => { try { return JSON.parse(r.extra); } catch { return null; } })() : r.extra; } catch (e) { extraL = ''; extraObjLocal = null; }
+              const text = `${urlL} ${titleL} ${extraL}`.trim();
+              // consider both normalized main tokens and raw tokens (preserves hyphenated phrases)
+              const matchTokens = Array.from(new Set([...(mainTokens || []), ...(rawTokens || [])]));
+              const presentTokens = matchTokens.length ? matchTokens.filter(t => t && text.includes(t)) : [];
+              const hasMain = matchTokens.length ? presentTokens.length > 0 : true;
               const hasNum = numericVariants.length ? numericVariants.some(v => text.includes(v)) || (hasRoman && (romanMatch && text.includes(romanMatch[0]))) : true;
               const hasGrade = gradeTokens.size ? Array.from(gradeTokens).some(gt => text.includes(gt)) : true;
-              return { row: r, hasMain, hasNum, hasGrade, text };
+              // detect extra/handle/sku exact or contains matches
+              let matchedByExtra = false;
+              let matchedExtraKey = null;
+              const qLower = raw.toLowerCase();
+              try {
+                if (extraObjLocal) {
+                  const keys = ['sku','model_code','model','code','product_code','handle'];
+                  for (const k of keys) {
+                    const v = extraObjLocal[k] || (extraObjLocal[k] === 0 ? '0' : null);
+                    if (!v) continue;
+                    const vs = String(v).toLowerCase();
+                    if (vs === qLower || vs.includes(qLower) || qLower.includes(vs)) { matchedByExtra = true; matchedExtraKey = k; break; }
+                  }
+                }
+              } catch (e) { matchedByExtra = false; }
+              // detect slug/handle in url and return which slug matched for diagnostics
+              let matchedByHandleUrl = false;
+              let matchedSlug = null;
+              if (slugVariants) {
+                for (const s of Array.from(slugVariants)) {
+                  if (!s) continue;
+                  if (urlL.includes(s)) { matchedByHandleUrl = true; matchedSlug = s; break; }
+                }
+              }
+              // include token/slug info to help debugging
+              return { row: r, hasMain, hasNum, hasGrade, text, matchedByExtra, matchedExtraKey, matchedByHandleUrl, matchedSlug, slugVariants: Array.from(slugVariants || []), mainTokens, numericVariants: Array.from(numericVariants || []), gradeTokens: Array.from(gradeTokens || []) };
             });
             res.setHeader('Cache-Control', 'no-store');
-            res.status(200).json({ key: normalize(`${abbr(grade)} ${q}`.trim()), diagnostics });
+            res.status(200).json({ key: normalize(`${abbr(grade)} ${q}`.trim()), q_source: req._q_source || null, diagnostics });
             return;
           } catch (dbgE) {
             // Fall back to previously fetched rows if debug fast path fails
@@ -441,14 +676,41 @@ export default async function handler(req, res) {
             const diagnostics = rows.map(r => {
               const urlL = (r.url || '').toLowerCase();
               const titleL = (r.title || '').toLowerCase();
-              const text = `${urlL} ${titleL}`;
-              const hasMain = mainTokens.length ? mainTokens.some(t => text.includes(t)) : true;
+              let extraL = '';
+              let extraObjLocal = null;
+              try { extraL = typeof r.extra === 'string' ? r.extra.toLowerCase() : JSON.stringify(r.extra || '').toLowerCase(); extraObjLocal = typeof r.extra === 'string' ? (() => { try { return JSON.parse(r.extra); } catch { return null; } })() : r.extra; } catch (e) { extraL = ''; extraObjLocal = null; }
+              const text = `${urlL} ${titleL} ${extraL}`.trim();
+              const matchTokens = Array.from(new Set([...(mainTokens || []), ...(rawTokens || [])]));
+              const presentTokens = matchTokens.length ? matchTokens.filter(t => t && text.includes(t)) : [];
+              const hasMain = matchTokens.length ? presentTokens.length > 0 : true;
               const hasNum = numericVariants.length ? numericVariants.some(v => text.includes(v)) || (hasRoman && (romanMatch && text.includes(romanMatch[0]))) : true;
               const hasGrade = gradeTokens.size ? Array.from(gradeTokens).some(gt => text.includes(gt)) : true;
-              return { row: r, hasMain, hasNum, hasGrade, text };
+              let matchedByExtra = false;
+              let matchedExtraKey = null;
+              const qLower = raw.toLowerCase();
+              try {
+                if (extraObjLocal) {
+                  const keys = ['sku','model_code','model','code','product_code','handle'];
+                  for (const k of keys) {
+                    const v = extraObjLocal[k] || (extraObjLocal[k] === 0 ? '0' : null);
+                    if (!v) continue;
+                    const vs = String(v).toLowerCase();
+                    if (vs === qLower || vs.includes(qLower) || qLower.includes(vs)) { matchedByExtra = true; matchedExtraKey = k; break; }
+                  }
+                }
+              } catch (e) { matchedByExtra = false; }
+                let matchedByHandleUrl = false;
+                let matchedSlug = null;
+                if (slugVariants) {
+                  for (const s of Array.from(slugVariants)) {
+                    if (!s) continue;
+                    if (urlL.includes(s)) { matchedByHandleUrl = true; matchedSlug = s; break; }
+                  }
+                }
+                return { row: r, hasMain, hasNum, hasGrade, text, matchedByExtra, matchedExtraKey, matchedByHandleUrl, matchedSlug, slugVariants: Array.from(slugVariants || []), mainTokens, numericVariants: Array.from(numericVariants || []), gradeTokens: Array.from(gradeTokens || []) };
             });
             res.setHeader('Cache-Control', 'no-store');
-            res.status(200).json({ key: normalize(`${abbr(grade)} ${q}`.trim()), diagnostics });
+            res.status(200).json({ key: normalize(`${abbr(grade)} ${q}`.trim()), q_source: req._q_source || null, diagnostics });
             return;
           }
         }
@@ -458,33 +720,52 @@ export default async function handler(req, res) {
           if (!o.url && !o.title) return false;
           const urlL = (o.url || '').toLowerCase();
           const titleL = (o.title || '').toLowerCase();
-          const text = `${urlL} ${titleL}`;
+          const extraL = (o.extraText || '').toLowerCase();
+          const text = `${urlL} ${titleL} ${extraL}`;
 
-          // Must contain at least one main token
-          if (mainTokens.length) {
-            const hasMain = mainTokens.some(t => text.includes(t));
-            if (!hasMain) return false;
-          }
-
-          // If numeric tokens were present in query, require at least one numeric variant match
-          // OR (for roman numerals) accept the roman form in the text
-          if (numericVariants.length) {
-            const hasNum = numericVariants.some(v => text.includes(v));
-            if (!hasNum) {
-              if (hasRoman) {
-                // accept roman numeral presence (e.g., 'ii') as match
-                const romanTok = (romanMatch && romanMatch[0]) || '';
-                if (!romanTok || !text.includes(romanTok)) return false;
-              } else {
-                return false;
+          // Quick accept: if extra fields or the URL/handle slug match the query,
+          // accept the row immediately (these indicate a canonical SKU/handle hit).
+          const qLower = raw.toLowerCase();
+          let matchedByExtra = false;
+          try {
+            const eo = o.extraObj;
+            if (eo) {
+              const keys = ['sku','model_code','model','code','product_code','handle'];
+              for (const k of keys) {
+                const v = eo[k] || (eo[k] === 0 ? '0' : null);
+                if (!v) continue;
+                const vs = String(v).toLowerCase();
+                if (vs === qLower || vs.includes(qLower) || qLower.includes(vs)) { matchedByExtra = true; break; }
               }
+            }
+          } catch (e) { matchedByExtra = false; }
+          const matchedByHandleUrl = slugVariants && Array.from(slugVariants).some(s => s && urlL.includes(s));
+          if (matchedByExtra || matchedByHandleUrl) return true;
+
+          // Require stronger token overlap to avoid single-token/color matches (e.g., 'black' matching many items)
+          const matchTokens = Array.from(new Set([...(mainTokens || []), ...(rawTokens || [])]));
+          const presentTokens = matchTokens.length ? matchTokens.filter(t => t && text.includes(t)) : [];
+          if (matchTokens.length) {
+            if (numericVariants.length) {
+              // numeric queries: require at least one numeric match AND at least one other token
+              const hasNumNow = numericVariants.some(v => text.includes(v)) || (hasRoman && (romanMatch && text.includes(romanMatch[0])));
+              if (!hasNumNow) return false;
+              if (presentTokens.length < 1) return false;
+            } else {
+              // non-numeric queries: require at least two matching tokens to be confident
+              if (presentTokens.length < 2) return false;
             }
           }
 
           // If grade token exists, require grade token in url/title (e.g., hg => hguc or hg)
           if (gradeTokens.size) {
-            const hasGrade = Array.from(gradeTokens).some(gt => text.includes(gt));
-            if (!hasGrade) return false;
+            const hasGradeNow = Array.from(gradeTokens).some(gt => text.includes(gt));
+            if (!hasGradeNow) {
+              // Relax grade enforcement when there's strong numeric + main-token evidence
+              const hasNumNow = numericVariants.length ? numericVariants.some(v => text.includes(v)) || (hasRoman && (romanMatch && text.includes(romanMatch[0]))) : true;
+              const hasMainNow = mainTokens.length ? mainTokens.some(t => text.includes(t)) : true;
+              if (!(hasNumNow && hasMainNow)) return false;
+            }
           }
 
           return true;
@@ -537,11 +818,14 @@ export default async function handler(req, res) {
         await Promise.all(toEnrich.map(o => enrichOffer(o)));
 
         // Resort after enrichment (price may have been filled)
-        const final = Array.from(byUrl.values()).sort((a, b) => (a.price || Infinity) - (b.price || Infinity));
+  const final = Array.from(byUrl.values()).sort((a, b) => (a.price || Infinity) - (b.price || Infinity));
 
-        res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
-        // Match the scraping response shape so the frontend can handle results consistently
-        res.status(200).json({ key: normalize(`${abbr(grade)} ${q}`.trim()), offers: final });
+  // Strip internal fields (extraText/_raw) before returning to frontend
+  const finalClean = final.map(({ store, title, url, price, currency }) => ({ store, title, url, price, currency }));
+
+  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+  // Match the scraping response shape so the frontend can handle results consistently
+  res.status(200).json({ key: normalize(`${abbr(grade)} ${q}`.trim()), offers: finalClean });
         return;
       } catch (dbErr) {
         console.error('supabase offers query failed', dbErr);
