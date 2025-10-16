@@ -114,5 +114,59 @@ app.post('/api/migrate-local', async (req, res) => {
   res.json({ created });
 });
 
+// Offers API: read offers from the products table in the database.
+// Query params: query (required), grade (optional)
+  app.get('/api/offers', async (req, res) => {
+    try {
+      // Accept raw query strings with punctuation (e.g., parentheses). Decode and normalize.
+      let raw = req.query.query || '';
+      if (Array.isArray(raw)) raw = raw[0];
+      raw = decodeURIComponent(String(raw || '')).trim();
+      const gradeRaw = (req.query.grade || '').toString().trim().toLowerCase();
+      if (!raw) return res.json([]);
+
+      // Build slug and a simple title-like pattern
+      const slug = raw.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+      const likeSlug = `%${slug}%`;
+      const titleLike = `%${raw.toLowerCase().replace(/%/g, '\\%')}%`;
+
+      // Query DB for matches on URL slug OR title (title may be missing for some stores)
+      const rows = await prisma.$queryRaw`
+        SELECT store, title, url, price, currency, extra, availability
+        FROM products
+        WHERE (lower(url) LIKE ${likeSlug} OR lower(title) LIKE ${titleLike})
+          AND active = true
+        ORDER BY price NULLS LAST, price ASC
+        LIMIT 2000
+      `;
+
+      // Map DB rows to offer objects; allow price to be null if DB doesn't have it
+      const offers = (rows || []).map(r => ({
+        store: r.store || 'Store',
+        title: r.title || '',
+        url: r.url || '',
+        price: r.price === null || r.price === undefined ? null : Number(r.price),
+        currency: r.currency || 'USD',
+        availability: r.availability || undefined,
+      }));
+
+      // Deduplicate exact URLs and preserve order
+      const seen = new Set();
+      const deduped = [];
+      for (const o of offers) {
+        if (!o.url) continue;
+        if (seen.has(o.url)) continue;
+        seen.add(o.url);
+        deduped.push(o);
+      }
+
+      // Return array (client accepts array or {offers:[]})
+      return res.json(deduped);
+    } catch (e) {
+      console.error('/api/offers error', e);
+      res.status(500).json({ error: 'offers query failed' });
+    }
+  });
+
 const port = process.env.PORT || 4000;
 app.listen(port, () => console.log('Server listening on', port));

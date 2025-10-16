@@ -405,20 +405,9 @@ export async function findOffersForModel(name: string, grade?: GundamGrade, opts
     console.warn('[offers] live fetch failed', e);
   }
 
-  // If live came back empty, fall back to the static index (direct key, then a loose token match)
+  // Per user's preference: use DB-backed live API only. If live returns nothing, return empty (no static fallback).
   if (!offers || offers.length === 0) {
-    const idx = await loadOffersIndex();
-    const q = normalize(`${gradeAbbr(grade)} ${effectiveName}`.trim());
-    let staticOffers = idx[q] || [];
-    if (!staticOffers || staticOffers.length === 0) {
-      const extra = (opts?.extraTerms || []).concat(imgTokens);
-      const combo = normalize(`${gradeAbbr(grade)} ${effectiveName} ${extra.join(' ')}`.trim());
-      const byTokens = pickByTokens(idx, tokenize(combo));
-      staticOffers = byTokens;
-    }
-    offers = (staticOffers || [])
-      .filter(o => typeof o.price === 'number' && o.price > 0)
-      .filter(o => matchesSelectedGrade(o.title, grade) && !isNonModelLine(o.title) && !isDecal(o.title));
+    return [];
   }
 
   // Dedupe by hostname and sort by price ascending
