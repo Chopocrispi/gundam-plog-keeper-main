@@ -407,7 +407,54 @@ export default async function handler(req, res) {
           url: r.url || '',
           price: r.price === null || r.price === undefined ? null : Number(r.price),
           currency: r.currency || 'USD',
-        })).filter(o => {
+        }));
+
+        // If debug flag is present, return candidate rows with matching diagnostics
+        // Use a much faster, limited path for debug to avoid timeouts and skip
+        // expensive enrichment and very large or() clauses.
+        const debugMode = !!(req.query && (req.query.debug === '1' || req.query.debug === 'true'));
+        if (debugMode) {
+          try {
+            // Narrow the selection and reduce limit to keep the response fast for debug
+            const debugResp = await supabase
+              .from('products')
+              .select(selectCols)
+              .or(orParam || `title.ilike.%${titleSanitized}%`, { count: 'exact' })
+              .eq('active', true)
+              .limit(200);
+            const debugRows = Array.isArray(debugResp.data) ? debugResp.data : rows;
+            const diagnostics = debugRows.map(r => {
+              const urlL = (r.url || '').toLowerCase();
+              const titleL = (r.title || '').toLowerCase();
+              const text = `${urlL} ${titleL}`;
+              const hasMain = mainTokens.length ? mainTokens.some(t => text.includes(t)) : true;
+              const hasNum = numericVariants.length ? numericVariants.some(v => text.includes(v)) || (hasRoman && (romanMatch && text.includes(romanMatch[0]))) : true;
+              const hasGrade = gradeTokens.size ? Array.from(gradeTokens).some(gt => text.includes(gt)) : true;
+              return { row: r, hasMain, hasNum, hasGrade, text };
+            });
+            res.setHeader('Cache-Control', 'no-store');
+            res.status(200).json({ key: normalize(`${abbr(grade)} ${q}`.trim()), diagnostics });
+            return;
+          } catch (dbgE) {
+            // Fall back to previously fetched rows if debug fast path fails
+            console.warn('debug fast path failed, falling back to existing rows', dbgE?.message || dbgE);
+            const diagnostics = rows.map(r => {
+              const urlL = (r.url || '').toLowerCase();
+              const titleL = (r.title || '').toLowerCase();
+              const text = `${urlL} ${titleL}`;
+              const hasMain = mainTokens.length ? mainTokens.some(t => text.includes(t)) : true;
+              const hasNum = numericVariants.length ? numericVariants.some(v => text.includes(v)) || (hasRoman && (romanMatch && text.includes(romanMatch[0]))) : true;
+              const hasGrade = gradeTokens.size ? Array.from(gradeTokens).some(gt => text.includes(gt)) : true;
+              return { row: r, hasMain, hasNum, hasGrade, text };
+            });
+            res.setHeader('Cache-Control', 'no-store');
+            res.status(200).json({ key: normalize(`${abbr(grade)} ${q}`.trim()), diagnostics });
+            return;
+          }
+        }
+
+        // Apply post-filtering to map->offers
+        const filteredOffers = offers.filter(o => {
           if (!o.url && !o.title) return false;
           const urlL = (o.url || '').toLowerCase();
           const titleL = (o.title || '').toLowerCase();
@@ -445,7 +492,7 @@ export default async function handler(req, res) {
 
         // Deduplicate by URL and keep lowest price ordering
         const byUrl = new Map();
-        for (const o of offers) {
+        for (const o of filteredOffers) {
           if (!o.url) continue;
           const prev = byUrl.get(o.url);
           if (!prev || (typeof o.price === 'number' && o.price < prev.price)) byUrl.set(o.url, o);
