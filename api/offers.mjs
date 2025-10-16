@@ -451,10 +451,50 @@ export default async function handler(req, res) {
           if (!prev || (typeof o.price === 'number' && o.price < prev.price)) byUrl.set(o.url, o);
         }
         const dedup = Array.from(byUrl.values()).sort((a, b) => (a.price || Infinity) - (b.price || Infinity));
+        // Enrich offers by scraping their URLs for missing title/price when possible.
+        async function enrichOffer(o) {
+          try {
+            if ((o.title && o.title.trim()) && (typeof o.price === 'number' && !Number.isNaN(o.price))) return o;
+            // Try JSON-LD parsing first
+            const items = await htmlJsonLd(o.url, o.store || 'Store', o.currency || 'USD', coreTokens(raw, grade));
+            if (Array.isArray(items) && items.length) {
+              const it = items[0];
+              if (it.title) o.title = it.title;
+              if (typeof it.price === 'number' && !Number.isNaN(it.price)) o.price = it.price;
+              if (it.currency) o.currency = it.currency;
+              return o;
+            }
+            // Fallback: lightweight meta tag parsing
+            const cheerio = await getCheerio();
+            if (!cheerio) return o;
+            const html = await fetchText(o.url).catch(() => null);
+            if (!html) return o;
+            const $ = cheerio.load(html);
+            const ogTitle = $('meta[property="og:title"]').attr('content') || $('meta[name="twitter:title"]').attr('content') || $('title').text();
+            if (ogTitle && ogTitle.trim()) o.title = o.title || ogTitle.trim();
+            // Try some common price hints
+            const priceMeta = $('meta[property="product:price:amount"]').attr('content') || $('meta[itemprop="price"]').attr('content') || $('[itemprop="price"]').attr('content') || $('.price').first().text();
+            if (priceMeta) {
+              const priceNum = Number(String(priceMeta).replace(/[^0-9.,]/g, '').replace(',', '.'));
+              if (!Number.isNaN(priceNum)) o.price = priceNum;
+            }
+            return o;
+          } catch (e) {
+            return o;
+          }
+        }
+
+        // Limit concurrent enrichments to first N offers to avoid excessive scraping
+        const ENRICH_LIMIT = 10;
+        const toEnrich = dedup.slice(0, ENRICH_LIMIT);
+        await Promise.all(toEnrich.map(o => enrichOffer(o)));
+
+        // Resort after enrichment (price may have been filled)
+        const final = Array.from(byUrl.values()).sort((a, b) => (a.price || Infinity) - (b.price || Infinity));
 
         res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
         // Match the scraping response shape so the frontend can handle results consistently
-        res.status(200).json({ key: normalize(`${abbr(grade)} ${q}`.trim()), offers: dedup });
+        res.status(200).json({ key: normalize(`${abbr(grade)} ${q}`.trim()), offers: final });
         return;
       } catch (dbErr) {
         console.error('supabase offers query failed', dbErr);
