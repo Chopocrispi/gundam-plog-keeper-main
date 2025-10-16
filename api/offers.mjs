@@ -53,6 +53,15 @@ function normalize(s) {
     .replace(/[α]/g, 'alpha')
     .replace(/[β]/g, 'beta')
     .replace(/[γ]/g, 'gamma')
+    // Convert common roman numerals (standalone) to digits to help matching
+    .replace(/\b(i{1,3})\b/g, (_, m) => String(m.length))
+    .replace(/\b(iv)\b/g, '4')
+    .replace(/\b(v)\b/g, '5')
+    .replace(/\b(vi)\b/g, '6')
+    .replace(/\b(vii)\b/g, '7')
+    .replace(/\b(viii)\b/g, '8')
+    .replace(/\b(ix)\b/g, '9')
+    .replace(/\b(x)\b/g, '10')
     .replace(/[^a-z0-9\s-]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -284,41 +293,43 @@ export default async function handler(req, res) {
         const titleSanitized = raw.replace(/[\%\\]/g, '').trim();
         const titleLike = `%${titleSanitized}%`;
 
-        const selectCols = 'store,title,url,price,currency,extra,availability';
+  const selectCols = 'store,title,url,price,currency,extra';
 
-        // First try searching by URL-like slug
+        // Build broad candidate query: search for core tokens in url/title using ilike.
+        // We'll fetch candidates and then apply stricter filtering in JS to implement
+        // the SQL-like semantics (numeric model matching and grade tokens).
+        const mainTokens = coreTokens(raw, grade);
+        const tokenClauses = [];
+        if (mainTokens.length === 0) {
+          // fallback to raw term
+          tokenClauses.push(`title.ilike.%${titleSanitized}%`);
+          tokenClauses.push(`url.ilike.%${titleSanitized}%`);
+        } else {
+          for (const t of mainTokens) {
+            const esc = t.replace(/%/g, '');
+            tokenClauses.push(`title.ilike.%${esc}%`);
+            tokenClauses.push(`url.ilike.%${esc}%`);
+          }
+        }
+
+        // Build or() param for PostgREST
+        const orParam = tokenClauses.join(',');
         let data = null;
         let error = null;
         try {
           const resp = await supabase
             .from('products')
             .select(selectCols)
-            .ilike('url', `%${slug}%`)
+            .or(orParam)
             .eq('active', true)
             .order('price', { ascending: true })
             .limit(2000);
           data = resp.data;
           error = resp.error;
         } catch (e) {
-          // continue to title search
-          console.warn('supabase url search failed, will try title search', e?.message || e);
-        }
-
-        // If url search returned nothing or errored, try title ilike
-        if ((!Array.isArray(data) || data.length === 0) && !error) {
-          try {
-            const resp2 = await supabase
-              .from('products')
-              .select(selectCols)
-              .ilike('title', titleLike)
-              .eq('active', true)
-              .order('price', { ascending: true })
-              .limit(2000);
-            data = resp2.data;
-            error = resp2.error;
-          } catch (e) {
-            error = e;
-          }
+          console.error('supabase broad search failed', e?.message || e);
+          res.status(500).json({ error: 'supabase_broad_search_failed', message: String(e) });
+          return;
         }
 
         if (error) {
@@ -327,15 +338,66 @@ export default async function handler(req, res) {
           return;
         }
 
-        // Map DB rows to offer objects; allow price to be null if DB doesn't have it
-        const offers = (data || []).map(r => ({
+        // Post-filter candidates to enforce numeric model tokens and grade tokens.
+        const rows = Array.isArray(data) ? data : [];
+        const gradeAbbr = abbr(grade) || '';
+
+        // Extract numeric tokens from query, e.g., '97' from 'RGM-97' or '097'
+        const digitTokens = tokenize(raw).filter(t => /\d/.test(t));
+        const numericVariants = [];
+        for (const dt of digitTokens) {
+          const digits = (dt.match(/\d+/g) || []).join('');
+          if (!digits) continue;
+          const p1 = digits; // e.g., 97
+          const p2 = digits.padStart(3, '0'); // e.g., 097
+          // variants to match in url/title
+          numericVariants.push(`-${p1}`);
+          numericVariants.push(p1);
+          numericVariants.push(p2);
+          numericVariants.push(`no-${p1}`);
+          numericVariants.push(`no-${p2}`);
+        }
+
+        // Grade tokens we consider satisfied by 'hg', 'hguc', 'high-grade'
+        const gradeTokens = new Set();
+        if (gradeAbbr) gradeTokens.add(gradeAbbr);
+        if (gradeAbbr === 'hg') {
+          gradeTokens.add('hguc');
+          gradeTokens.add('high-grade');
+        }
+
+        const offers = rows.map(r => ({
           store: r.store || 'Store',
           title: r.title || '',
           url: r.url || '',
           price: r.price === null || r.price === undefined ? null : Number(r.price),
           currency: r.currency || 'USD',
-          availability: r.availability || undefined,
-        })).filter(o => o.url);
+        })).filter(o => {
+          if (!o.url && !o.title) return false;
+          const urlL = (o.url || '').toLowerCase();
+          const titleL = (o.title || '').toLowerCase();
+          const text = `${urlL} ${titleL}`;
+
+          // Must contain at least one main token
+          if (mainTokens.length) {
+            const hasMain = mainTokens.some(t => text.includes(t));
+            if (!hasMain) return false;
+          }
+
+          // If numeric tokens were present in query, require at least one numeric variant match
+          if (numericVariants.length) {
+            const hasNum = numericVariants.some(v => text.includes(v));
+            if (!hasNum) return false;
+          }
+
+          // If grade token exists, require grade token in url/title (e.g., hg => hguc or hg)
+          if (gradeTokens.size) {
+            const hasGrade = Array.from(gradeTokens).some(gt => text.includes(gt));
+            if (!hasGrade) return false;
+          }
+
+          return true;
+        });
 
         // Deduplicate by URL and keep lowest price ordering
         const byUrl = new Map();

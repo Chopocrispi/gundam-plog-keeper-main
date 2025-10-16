@@ -132,7 +132,7 @@ app.post('/api/migrate-local', async (req, res) => {
 
       // Query DB for matches on URL slug OR title (title may be missing for some stores)
       const rows = await prisma.$queryRaw`
-        SELECT store, title, url, price, currency, extra, availability
+        SELECT store, title, url, price, currency, extra
         FROM products
         WHERE (lower(url) LIKE ${likeSlug} OR lower(title) LIKE ${titleLike})
           AND active = true
@@ -147,7 +147,6 @@ app.post('/api/migrate-local', async (req, res) => {
         url: r.url || '',
         price: r.price === null || r.price === undefined ? null : Number(r.price),
         currency: r.currency || 'USD',
-        availability: r.availability || undefined,
       }));
 
       // Deduplicate exact URLs and preserve order
