@@ -1,5 +1,6 @@
 // Serverless endpoint to fetch live offers from multiple stores.
 // Portable across hosts by using global fetch and lazy cheerio.
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 let _cheerio = null;
 async function getCheerio() {
@@ -240,6 +241,64 @@ export default async function handler(req, res) {
       return;
     }
     const variants = queryVariants(q, grade);
+
+    // If Supabase credentials are provided in the environment, prefer reading
+    // offers from the `products` table in the DB. This makes serverless
+    // deployments return database-backed offers (URLs/prices) instead of
+    // performing live scraping.
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.VITE_PUBLIC_SUPABASE_URL;
+    const supabaseAnon = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
+    if (supabaseUrl && supabaseAnon) {
+      try {
+        const supabase = createSupabaseClient(supabaseUrl, supabaseAnon, { auth: { persistSession: false } });
+        // Accept raw query strings with punctuation (e.g., parentheses). Decode and normalize.
+        let raw = q || '';
+        if (Array.isArray(raw)) raw = raw[0];
+        raw = decodeURIComponent(String(raw || '')).trim();
+        const slug = raw.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+        const likeSlug = `%${slug}%`;
+        const titleLike = `%${raw.replace(/%/g, '\%')}%`;
+
+        const orClause = `url.ilike.%${slug}%,title.ilike.%${raw}%`;
+        // Query Supabase products table for matching rows
+        const { data, error } = await supabase
+          .from('products')
+          .select('store,title,url,price,currency,extra,availability')
+          .or(orClause)
+          .eq('active', true)
+          .order('price', { ascending: true })
+          .limit(2000);
+
+        if (!error && Array.isArray(data)) {
+          // Map DB rows to offer objects; allow price to be null if DB doesn't have it
+          const offers = (data || []).map(r => ({
+            store: r.store || 'Store',
+            title: r.title || '',
+            url: r.url || '',
+            price: r.price === null || r.price === undefined ? null : Number(r.price),
+            currency: r.currency || 'USD',
+            availability: r.availability || undefined,
+          })).filter(o => o.url);
+
+          // Deduplicate by URL and return
+          const seen = new Set();
+          const dedup = [];
+          for (const o of offers) {
+            if (!o.url) continue;
+            if (seen.has(o.url)) continue;
+            seen.add(o.url);
+            dedup.push(o);
+          }
+          res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+          res.status(200).json(dedup);
+          return;
+        }
+        // otherwise fall through to scraping fallback
+      } catch (dbErr) {
+        console.warn('supabase offers fallback failed', dbErr);
+        // continue to scraping fallback
+      }
+    }
 
     // Shopify domains across multiple regions
     const shopifyDomains = [
