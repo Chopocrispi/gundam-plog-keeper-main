@@ -299,14 +299,20 @@ export default async function handler(req, res) {
         // We'll fetch candidates and then apply stricter filtering in JS to implement
         // the SQL-like semantics (numeric model matching and grade tokens).
         const mainTokens = coreTokens(raw, grade);
+        // Also include raw tokens (pre-normalization) so forms like 'II' are matched.
+        const rawTokens = (String(raw || '').toLowerCase().replace(/[()]/g, ' ').split(/\s+/).filter(Boolean)).map(t => t.replace(/[^a-z0-9-]/g, ''));
         const tokenClauses = [];
-        if (mainTokens.length === 0) {
+        if (mainTokens.length === 0 && rawTokens.length === 0) {
           // fallback to raw term
           tokenClauses.push(`title.ilike.%${titleSanitized}%`);
           tokenClauses.push(`url.ilike.%${titleSanitized}%`);
         } else {
-          for (const t of mainTokens) {
-            const esc = t.replace(/%/g, '');
+          const seenTok = new Set();
+          for (const t of [...mainTokens, ...rawTokens]) {
+            const tok = String(t || '').trim();
+            if (!tok || seenTok.has(tok)) continue;
+            seenTok.add(tok);
+            const esc = tok.replace(/%/g, '');
             tokenClauses.push(`title.ilike.%${esc}%`);
             tokenClauses.push(`url.ilike.%${esc}%`);
           }
@@ -338,12 +344,16 @@ export default async function handler(req, res) {
           return;
         }
 
-        // Post-filter candidates to enforce numeric model tokens and grade tokens.
+  // Post-filter candidates to enforce numeric model tokens and grade tokens.
         const rows = Array.isArray(data) ? data : [];
-        const gradeAbbr = abbr(grade) || '';
 
-        // Extract numeric tokens from query, e.g., '97' from 'RGM-97' or '097'
-        const digitTokens = tokenize(raw).filter(t => /\d/.test(t));
+  const gradeAbbr = abbr(grade) || '';
+
+  // Extract numeric tokens from query, e.g., '97' from 'RGM-97' or '097'
+  const digitTokens = tokenize(raw).filter(t => /\d/.test(t));
+  // Detect roman numerals present in raw tokens (e.g., II)
+  const romanMatch = String(raw || '').toLowerCase().match(/\b(i{1,3}|iv|v|vi|vii|viii|ix|x)\b/);
+  const hasRoman = !!romanMatch;
         const numericVariants = [];
         for (const dt of digitTokens) {
           const digits = (dt.match(/\d+/g) || []).join('');
@@ -358,12 +368,37 @@ export default async function handler(req, res) {
           numericVariants.push(`no-${p2}`);
         }
 
-        // Grade tokens we consider satisfied by 'hg', 'hguc', 'high-grade'
+        // Grade tokens we consider satisfied by abbreviations and synonyms
         const gradeTokens = new Set();
         if (gradeAbbr) gradeTokens.add(gradeAbbr);
         if (gradeAbbr === 'hg') {
           gradeTokens.add('hguc');
           gradeTokens.add('high-grade');
+          gradeTokens.add('high');
+        }
+        if (gradeAbbr === 'mg') {
+          gradeTokens.add('master');
+          gradeTokens.add('master-grade');
+          gradeTokens.add('mg');
+        }
+        if (gradeAbbr === 'rg') {
+          gradeTokens.add('real');
+          gradeTokens.add('real-grade');
+          gradeTokens.add('rg');
+        }
+        if (gradeAbbr === 'pg') {
+          gradeTokens.add('perfect');
+          gradeTokens.add('perfect-grade');
+          gradeTokens.add('pg');
+        }
+        if (gradeAbbr === 'fm') {
+          gradeTokens.add('full');
+          gradeTokens.add('full-mechanics');
+          gradeTokens.add('fm');
+        }
+        if (gradeAbbr === 'sd') {
+          gradeTokens.add('super-deformed');
+          gradeTokens.add('sd');
         }
 
         const offers = rows.map(r => ({
@@ -385,9 +420,18 @@ export default async function handler(req, res) {
           }
 
           // If numeric tokens were present in query, require at least one numeric variant match
+          // OR (for roman numerals) accept the roman form in the text
           if (numericVariants.length) {
             const hasNum = numericVariants.some(v => text.includes(v));
-            if (!hasNum) return false;
+            if (!hasNum) {
+              if (hasRoman) {
+                // accept roman numeral presence (e.g., 'ii') as match
+                const romanTok = (romanMatch && romanMatch[0]) || '';
+                if (!romanTok || !text.includes(romanTok)) return false;
+              } else {
+                return false;
+              }
+            }
           }
 
           // If grade token exists, require grade token in url/title (e.g., hg => hguc or hg)
