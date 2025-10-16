@@ -1,6 +1,19 @@
 // Serverless endpoint to fetch live offers from multiple stores.
 // Portable across hosts by using global fetch and lazy cheerio.
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+// Lazy-load Supabase client at runtime to avoid module-evaluation errors
+let createSupabaseClient = null;
+async function getSupabaseCreateClient() {
+  if (createSupabaseClient) return createSupabaseClient;
+  try {
+    const mod = await import('@supabase/supabase-js');
+    // support both named and default exports
+    createSupabaseClient = mod.createClient || mod.default?.createClient || mod.default || null;
+    return createSupabaseClient;
+  } catch (e) {
+    console.warn('unable to import @supabase/supabase-js dynamically', e?.message || e);
+    return null;
+  }
+}
 
 let _cheerio = null;
 async function getCheerio() {
@@ -248,14 +261,19 @@ export default async function handler(req, res) {
     // performing live scraping.
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.VITE_PUBLIC_SUPABASE_URL;
     const supabaseAnon = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
-    if (supabaseUrl && supabaseAnon) {
+  if (supabaseUrl && supabaseAnon) {
       // When Supabase credentials are present, use the `products` table exclusively
       // and do NOT fall back to live scraping. We try a two-step search to avoid
       // malformed OR clause issues: 1) search by normalized url slug, 2) fallback
       // to searching the title text. Return the same response shape as the
       // scraping path ({ key, offers }).
       try {
-        const supabase = createSupabaseClient(supabaseUrl, supabaseAnon, { auth: { persistSession: false } });
+        const createClient = await getSupabaseCreateClient();
+        if (!createClient) {
+          res.status(500).json({ error: 'supabase_import_failed', message: 'Could not import @supabase/supabase-js' });
+          return;
+        }
+        const supabase = createClient(supabaseUrl, supabaseAnon, { auth: { persistSession: false } });
         // Accept raw query strings with punctuation (e.g., parentheses). Decode and normalize.
         let raw = q || '';
         if (Array.isArray(raw)) raw = raw[0];
