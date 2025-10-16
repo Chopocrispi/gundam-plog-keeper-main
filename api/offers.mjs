@@ -250,9 +250,10 @@ export default async function handler(req, res) {
     const supabaseAnon = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
     if (supabaseUrl && supabaseAnon) {
       // When Supabase credentials are present, use the `products` table exclusively
-      // and do NOT fall back to live scraping. This prevents the endpoint from
-      // performing network scraping in serverless deployments where the DB is
-      // expected to hold the canonical product/offer data.
+      // and do NOT fall back to live scraping. We try a two-step search to avoid
+      // malformed OR clause issues: 1) search by normalized url slug, 2) fallback
+      // to searching the title text. Return the same response shape as the
+      // scraping path ({ key, offers }).
       try {
         const supabase = createSupabaseClient(supabaseUrl, supabaseAnon, { auth: { persistSession: false } });
         // Accept raw query strings with punctuation (e.g., parentheses). Decode and normalize.
@@ -261,21 +262,49 @@ export default async function handler(req, res) {
         raw = decodeURIComponent(String(raw || '')).trim();
         const slug = raw.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
 
-        // Build an OR clause that searches normalized URL-like slug or title text.
-        // Use ilike (case-insensitive) with wildcards.
-        const orClause = `url.ilike.%${slug}%,title.ilike.%${raw}%`;
+        // Sanitize title search term to avoid special chars breaking the ilike clause
+        const titleSanitized = raw.replace(/[\%\\]/g, '').trim();
+        const titleLike = `%${titleSanitized}%`;
 
-        // Query Supabase products table for matching rows. Only active products.
-        const { data, error } = await supabase
-          .from('products')
-          .select('store,title,url,price,currency,extra,availability')
-          .or(orClause)
-          .eq('active', true)
-          .order('price', { ascending: true })
-          .limit(2000);
+        const selectCols = 'store,title,url,price,currency,extra,availability';
+
+        // First try searching by URL-like slug
+        let data = null;
+        let error = null;
+        try {
+          const resp = await supabase
+            .from('products')
+            .select(selectCols)
+            .ilike('url', `%${slug}%`)
+            .eq('active', true)
+            .order('price', { ascending: true })
+            .limit(2000);
+          data = resp.data;
+          error = resp.error;
+        } catch (e) {
+          // continue to title search
+          console.warn('supabase url search failed, will try title search', e?.message || e);
+        }
+
+        // If url search returned nothing or errored, try title ilike
+        if ((!Array.isArray(data) || data.length === 0) && !error) {
+          try {
+            const resp2 = await supabase
+              .from('products')
+              .select(selectCols)
+              .ilike('title', titleLike)
+              .eq('active', true)
+              .order('price', { ascending: true })
+              .limit(2000);
+            data = resp2.data;
+            error = resp2.error;
+          } catch (e) {
+            error = e;
+          }
+        }
 
         if (error) {
-          console.warn('supabase query error', error);
+          console.error('supabase query error', error);
           res.status(500).json({ error: 'supabase_query_failed', message: String(error.message || error) });
           return;
         }
@@ -290,23 +319,23 @@ export default async function handler(req, res) {
           availability: r.availability || undefined,
         })).filter(o => o.url);
 
-        // Deduplicate by URL and return
-        const seen = new Set();
-        const dedup = [];
+        // Deduplicate by URL and keep lowest price ordering
+        const byUrl = new Map();
         for (const o of offers) {
           if (!o.url) continue;
-          if (seen.has(o.url)) continue;
-          seen.add(o.url);
-          dedup.push(o);
+          const prev = byUrl.get(o.url);
+          if (!prev || (typeof o.price === 'number' && o.price < prev.price)) byUrl.set(o.url, o);
         }
+        const dedup = Array.from(byUrl.values()).sort((a, b) => (a.price || Infinity) - (b.price || Infinity));
 
         res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
-        // Return DB-backed offers array (no live-scraping fallback when Supabase is configured)
-        res.status(200).json(dedup);
+        // Match the scraping response shape so the frontend can handle results consistently
+        res.status(200).json({ key: normalize(`${abbr(grade)} ${q}`.trim()), offers: dedup });
         return;
       } catch (dbErr) {
         console.error('supabase offers query failed', dbErr);
-        res.status(500).json({ error: 'supabase_query_exception', message: String(dbErr) });
+        // Return a helpful error body so client logs are more informative
+        res.status(500).json({ error: 'supabase_query_exception', message: String(dbErr && dbErr.message ? dbErr.message : dbErr) });
         return;
       }
     }
