@@ -464,6 +464,7 @@ export default async function handler(req, res) {
       return results;
     })(),
     // MyKombini (FR)
+    //amo a mi mujer
     (async () => {
       const base = 'https://mykombini.com';
       const abs = makeAbsolutizer(base);
