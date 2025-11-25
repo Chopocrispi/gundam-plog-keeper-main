@@ -18,7 +18,10 @@ function getFetch() {
   throw new Error('fetch_not_available: Host must provide global fetch (Node 18+ or Edge runtime).');
 }
 
-const DEFAULT_TIMEOUT_MS = 10000;
+// Default timeout for upstream requests (reduced for faster failure and overall latency)
+const DEFAULT_TIMEOUT_MS = 7000;
+// Limit how many query variants we try per store to avoid excessive requests
+const MAX_VARIANTS = 3;
 async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
   const F = getFetch();
   const canAbort = typeof AbortController !== 'undefined';
@@ -177,48 +180,54 @@ async function shopify(domain, query, source, grade) {
     const variants = queryVariants(query, grade);
     const tokens = coreTokens(query, grade);
     const out = [];
-    // Try predictive/suggest API first
-    for (const v of variants) {
+    // Try predictive/suggest API first. Limit variants to reduce requests and
+    // fetch product JSONs in parallel per-variant for lower latency.
+    for (const v of variants.slice(0, MAX_VARIANTS)) {
       const tokens = coreTokens(v, grade);
       try {
         const suggest = `${base}/search/suggest.json?q=${encodeURIComponent(v)}&resources[type]=product&resources[limit]=20`;
         const data = await fetchJson(suggest);
         const products = data?.resources?.results?.products || [];
-        for (const p of products) {
-          const handle = p.handle || (p.url?.split('/products/')[1] || '').replace(/\/$/, '');
-          if (!handle) continue;
-          const pjs = await fetchJson(`${base}/products/${handle}.js`).catch(() => null);
-          let price = null;
-          if (pjs && typeof pjs.price === 'number') price = Math.round(pjs.price) / 100;
-          const title = p.title || pjs?.title || 'Product';
-          if (!isRelevantTitle(title, tokens)) continue;
-          // Some Shopify stores (e.g., Banzai Hobby) report prices in JPY.
-          // Force conversion for known JPY shop domains.
-          const isBanzai = domain && domain.includes('banzaihobby');
-          const finalPrice = isBanzai && typeof price === 'number' ? convertToUSD(price, 'JPY') : price;
-          const finalCurrency = isBanzai ? 'USD' : 'USD';
-          out.push({ store: source, title, url: `${base}/products/${handle}`, price: finalPrice, currency: finalCurrency });
+        // build handles and parallel-fetch product JSONs
+        const handlePairs = products.map(p => ({ p, handle: p.handle || (p.url?.split('/products/')[1] || '').replace(/\/$/, '') })).filter(h => h.handle);
+        if (handlePairs.length) {
+          const pjsList = await Promise.all(handlePairs.map(h => fetchJson(`${base}/products/${h.handle}.js`).catch(() => null)));
+          for (let i = 0; i < handlePairs.length; i++) {
+            const { p, handle } = handlePairs[i];
+            const pjs = pjsList[i];
+            let price = null;
+            if (pjs && typeof pjs.price === 'number') price = Math.round(pjs.price) / 100;
+            const title = p.title || pjs?.title || 'Product';
+            if (!isRelevantTitle(title, tokens)) continue;
+            const isBanzai = domain && domain.includes('banzaihobby');
+            const finalPrice = isBanzai && typeof price === 'number' ? convertToUSD(price, 'JPY') : price;
+            out.push({ store: source, title, url: `${base}/products/${handle}`, price: finalPrice, currency: 'USD' });
+          }
         }
         if (out.length) return out;
       } catch { /* try next variant */ }
     }
     // HTML fallback: parse /search results for product links
-    for (const v of variants) {
+    for (const v of variants.slice(0, MAX_VARIANTS)) {
       const tokens = coreTokens(v, grade);
       try {
         const abs = makeAbsolutizer(base);
         const links = await findProductLinks(`${base}/search?q=${encodeURIComponent(v)}`, (href) => href.includes('/products/'), abs);
-        for (const url of links) {
-          const handle = (url.split('/products/')[1] || '').replace(/\/$/, '');
-          if (!handle) continue;
-          const pjs = await fetchJson(`${base}/products/${handle}.js`).catch(() => null);
-          let price = null;
-          if (pjs && typeof pjs.price === 'number') price = Math.round(pjs.price) / 100;
-          const title = pjs?.title || 'Product';
-          if (!isRelevantTitle(title, tokens)) continue;
-          const isBanzai = domain && domain.includes('banzaihobby');
-          const finalPrice = isBanzai && typeof price === 'number' ? convertToUSD(price, 'JPY') : price;
-          out.push({ store: source, title, url: `${base}/products/${handle}`, price: finalPrice, currency: 'USD' });
+        if (links.length) {
+          // parallelize product.js fetches for found links
+          const handles = links.map(url => ({ url, handle: (url.split('/products/')[1] || '').replace(/\/$/, '') })).filter(h => h.handle);
+          const pjsList = await Promise.all(handles.map(h => fetchJson(`${base}/products/${h.handle}.js`).catch(() => null)));
+          for (let i = 0; i < handles.length; i++) {
+            const { url, handle } = handles[i];
+            const pjs = pjsList[i];
+            let price = null;
+            if (pjs && typeof pjs.price === 'number') price = Math.round(pjs.price) / 100;
+            const title = pjs?.title || 'Product';
+            if (!isRelevantTitle(title, tokens)) continue;
+            const isBanzai = domain && domain.includes('banzaihobby');
+            const finalPrice = isBanzai && typeof price === 'number' ? convertToUSD(price, 'JPY') : price;
+            out.push({ store: source, title, url: `${base}/products/${handle}`, price: finalPrice, currency: 'USD' });
+          }
         }
         if (out.length) return out;
       } catch { /* next variant */ }
