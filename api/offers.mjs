@@ -192,7 +192,12 @@ async function shopify(domain, query, source, grade) {
           if (pjs && typeof pjs.price === 'number') price = Math.round(pjs.price) / 100;
           const title = p.title || pjs?.title || 'Product';
           if (!isRelevantTitle(title, tokens)) continue;
-          out.push({ store: source, title, url: `${base}/products/${handle}`, price, currency: 'USD' });
+          // Some Shopify stores (e.g., Banzai Hobby) report prices in JPY.
+          // Force conversion for known JPY shop domains.
+          const isBanzai = domain && domain.includes('banzaihobby');
+          const finalPrice = isBanzai && typeof price === 'number' ? convertToUSD(price, 'JPY') : price;
+          const finalCurrency = isBanzai ? 'USD' : 'USD';
+          out.push({ store: source, title, url: `${base}/products/${handle}`, price: finalPrice, currency: finalCurrency });
         }
         if (out.length) return out;
       } catch { /* try next variant */ }
@@ -211,7 +216,9 @@ async function shopify(domain, query, source, grade) {
           if (pjs && typeof pjs.price === 'number') price = Math.round(pjs.price) / 100;
           const title = pjs?.title || 'Product';
           if (!isRelevantTitle(title, tokens)) continue;
-          out.push({ store: source, title, url: `${base}/products/${handle}`, price, currency: 'USD' });
+          const isBanzai = domain && domain.includes('banzaihobby');
+          const finalPrice = isBanzai && typeof price === 'number' ? convertToUSD(price, 'JPY') : price;
+          out.push({ store: source, title, url: `${base}/products/${handle}`, price: finalPrice, currency: 'USD' });
         }
         if (out.length) return out;
       } catch { /* next variant */ }
