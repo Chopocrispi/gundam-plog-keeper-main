@@ -32,6 +32,22 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_M
   }
 }
 
+// Currency conversion helpers. Default JPY->USD rate can be overridden
+// via the `JPY_TO_USD` environment variable (useful for testing or chaining).
+const DEFAULT_JPY_TO_USD = Number(process?.env?.JPY_TO_USD || 0.0065);
+function isJpyCurrency(c) {
+  if (!c) return false;
+  return /^(JPY|¥|YEN)$/i.test(String(c).trim());
+}
+function convertToUSD(amount, currency) {
+  if (amount == null || Number.isNaN(Number(amount))) return amount;
+  if (isJpyCurrency(currency)) {
+    // Round to 2 decimal places for USD cents
+    return Number((Number(amount) * DEFAULT_JPY_TO_USD).toFixed(2));
+  }
+  return Number(amount);
+}
+
 function normalize(s) {
   return (s || '')
     .toLowerCase()
@@ -198,7 +214,10 @@ async function htmlJsonLd(url, source, currencyGuess = 'USD', tokens) {
             if (!Number.isNaN(price)) {
               const title = it.name || 'Product';
               if (!isRelevantTitle(title, tokens)) continue;
-              items.push({ store: source, title, url, price, currency: off.priceCurrency || currencyGuess });
+              const currencyRaw = off.priceCurrency || currencyGuess || '';
+              const converted = convertToUSD(price, currencyRaw);
+              const outCurrency = isJpyCurrency(currencyRaw) ? 'USD' : (currencyRaw || currencyGuess || 'USD');
+              items.push({ store: source, title, url, price: converted, currency: outCurrency });
             }
           }
         }
