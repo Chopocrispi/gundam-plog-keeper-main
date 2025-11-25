@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GundamModel, GundamGrade, BuildStatus } from '@/types/gundam';
 import { fetchGundamImages, searchGunplaImagesByKeywords } from '@/utils/gunpladb';
+import { supabaseAvailable } from '@/utils/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -60,6 +61,12 @@ export const GundamForm = ({ model, onSubmit, onCancel, hideBuildStatus = false 
     const mySearchId = ++latestSearchRef.current;
     if (!formData.name.trim()) {
       // silently ignore if name is empty
+      return;
+    }
+
+    // If Supabase isn't configured in the environment, skip the search and inform the user.
+    if (!supabaseAvailable()) {
+      toast({ title: 'Image search disabled', description: 'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable model image search.', variant: 'default' });
       return;
     }
 
