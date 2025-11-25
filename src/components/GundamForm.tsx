@@ -251,6 +251,20 @@ export const GundamForm = ({ model, onSubmit, onCancel, hideBuildStatus = false 
             />
           </div>
         )}
+        {showImageSelector && imageOptions.length === 0 && !isSearchingImage && (
+          <div className="mt-2">
+            <div className="w-full max-w-4xl mx-auto p-4 rounded bg-slate-800 text-sm text-muted-foreground">
+              {supabaseAvailable()
+                ? 'No images found for that model. Try refining the name or changing the grade.'
+                : 'Image search is disabled — Supabase not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable.'}
+              <div className="mt-2 flex justify-end">
+                <Button size="sm" variant="outline" onClick={() => { setShowImageSelector(false); setImageOptions([]); }}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-2 justify-end">
