@@ -48,6 +48,35 @@ function convertToUSD(amount, currency) {
   return Number(amount);
 }
 
+// Parse a raw price string/number into a numeric value.
+// Handles currency symbols like ¥, commas as thousand separators, and common
+// European decimal formats (basic handling).
+function parseNumericPrice(raw) {
+  if (raw == null) return NaN;
+  let s = String(raw).trim();
+  if (!s) return NaN;
+  // Keep digits, comma, dot and minus
+  const filtered = s.replace(/[^0-9.,-]/g, '');
+  if (!filtered) return NaN;
+  let normalized;
+  if (filtered.includes(',') && filtered.includes('.')) {
+    // If the last comma appears after the last dot, assume dot is thousand sep and comma is decimal
+    if (filtered.lastIndexOf(',') > filtered.lastIndexOf('.')) {
+      normalized = filtered.replace(/\./g, '').replace(/,/g, '.');
+    } else {
+      // Otherwise assume commas are thousand separators
+      normalized = filtered.replace(/,/g, '');
+    }
+  } else if (filtered.includes(',')) {
+    // Mostly thousands separator for JPY and many stores — remove commas
+    normalized = filtered.replace(/,/g, '');
+  } else {
+    normalized = filtered;
+  }
+  const num = Number(normalized);
+  return Number.isNaN(num) ? NaN : num;
+}
+
 function normalize(s) {
   return (s || '')
     .toLowerCase()
@@ -210,12 +239,13 @@ async function htmlJsonLd(url, source, currencyGuess = 'USD', tokens) {
           if (!offers) continue;
           const offArr = Array.isArray(offers) ? offers : [offers];
           for (const off of offArr) {
-            const price = Number(String(off.price || off?.priceSpecification?.price).replace(',', '.'));
-            if (!Number.isNaN(price)) {
+            const rawPrice = off.price || off?.priceSpecification?.price;
+            const priceNum = parseNumericPrice(rawPrice);
+            if (!Number.isNaN(priceNum)) {
               const title = it.name || 'Product';
               if (!isRelevantTitle(title, tokens)) continue;
               const currencyRaw = off.priceCurrency || currencyGuess || '';
-              const converted = convertToUSD(price, currencyRaw);
+              const converted = convertToUSD(priceNum, currencyRaw);
               const outCurrency = isJpyCurrency(currencyRaw) ? 'USD' : (currencyRaw || currencyGuess || 'USD');
               items.push({ store: source, title, url, price: converted, currency: outCurrency });
             }
