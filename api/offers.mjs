@@ -19,7 +19,7 @@ function getFetch() {
 }
 
 // Default timeout for upstream requests (reduced for faster failure and overall latency)
-const DEFAULT_TIMEOUT_MS = 7000;
+const DEFAULT_TIMEOUT_MS = 5500;
 // Limit how many query variants we try per store to avoid excessive requests
 const MAX_VARIANTS = 3;
 async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
@@ -298,6 +298,16 @@ async function findProductLinks(searchUrl, linkPredicate, absolutize) {
 
 export default async function handler(req, res) {
   try {
+    // In-memory cache to accelerate repeated queries (5 minutes)
+    if (!globalThis.__offersCache) globalThis.__offersCache = new Map();
+    const cacheKey = `${normalize((req.query?.grade || '').toString())}:${normalize((req.query?.query || req.query?.q || '').toString())}`;
+    const cached = globalThis.__offersCache.get(cacheKey);
+    const now = Date.now();
+    if (cached && (now - cached.ts) < 300_000) {
+      res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+      res.status(200).json(cached.data);
+      return;
+    }
     const q = (req.query?.query || req.query?.q || '').toString();
     const grade = (req.query?.grade || '').toString();
     if (!q) {
@@ -558,6 +568,7 @@ export default async function handler(req, res) {
       return results;
     })(),
   ];
+    // Pooling via Promise.allSettled already parallelizes; the shorter timeout above avoids long-tail stalls.
     const settled = await Promise.allSettled(tasks);
     const offers = settled.flatMap(r => r.status === 'fulfilled' ? r.value : []);
     // Dedupe by hostname, keep lowest price
@@ -571,8 +582,10 @@ export default async function handler(req, res) {
       } catch {}
     }
     const out = Array.from(seen.values()).filter(o => typeof o.price === 'number').sort((a, b) => a.price - b.price);
+    const payload = { key: normalize(`${abbr(grade)} ${q}`.trim()), offers: out };
+    globalThis.__offersCache.set(cacheKey, { ts: now, data: payload });
     res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
-    res.status(200).json({ key: normalize(`${abbr(grade)} ${q}`.trim()), offers: out });
+    res.status(200).json(payload);
   } catch (e) {
     console.error('offers api error', e);
     res.status(500).json({ error: 'internal_error', message: String(e?.message || e) });
