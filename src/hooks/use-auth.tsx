@@ -147,6 +147,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Use Supabase OAuth; supports 'google' and 'discord'
     const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
     const scopes = provider === 'discord' ? 'identify email' : undefined;
+    // Validate Supabase env before attempting OAuth (helps surface misconfigurations that can manifest as TLS errors)
+    const env: any = (import.meta as any).env || {};
+    const url = env.VITE_SUPABASE_URL || env.VITE_PUBLIC_SUPABASE_URL;
+    const key = env.VITE_SUPABASE_ANON_KEY || env.VITE_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !key) {
+      toast({ title: 'Auth no configurado', description: 'Faltan VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY. Añade las variables y reinicia.' });
+      return;
+    }
+    if (!/^https:\/\//i.test(url)) {
+      toast({ title: 'URL Supabase inválida', description: 'La URL debe comenzar con https:// para evitar fallos TLS.' });
+      return;
+    }
     supabase.auth.signInWithOAuth({ provider, options: { redirectTo, scopes } }).then((res) => {
       if (res.error) {
         console.warn('Supabase signInWithOAuth failed', res.error);
